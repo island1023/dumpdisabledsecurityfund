@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.SysUserMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.SysUser">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="real_name" property="realName"/>
+        <result column="user_type" property="userType"/>
+        <result column="admin_level" property="adminLevel"/>
+        <result column="region_id" property="regionId"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sys_user(
+            username, password, real_name, user_type, admin_level,
+            region_id, status, create_time, update_time
+        ) VALUES(
+                    #{username}, #{password}, #{realName}, #{userType}, #{adminLevel},
+                    #{regionId}, #{status}, #{createTime}, #{updateTime}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM sys_user WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" resultMap="BaseResultMap">
+        SELECT * FROM sys_user WHERE username = #{username} LIMIT 1
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM sys_user ORDER BY id DESC
+    </select>
+
+    <select id="selectByUserType" resultMap="BaseResultMap">
+        SELECT * FROM sys_user WHERE user_type = #{userType} ORDER BY id DESC
+    </select>
+
+    <select id="selectByRegionId" resultMap="BaseResultMap">
+        SELECT * FROM sys_user WHERE region_id = #{regionId} ORDER BY id DESC
+    </select>
+
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM sys_user WHERE status = #{status} ORDER BY id DESC
+    </select>
+
+    <update id="updateById">
+        UPDATE sys_user
+        <set>
+            <if test="password != null">password = #{password},</if>
+            <if test="realName != null">real_name = #{realName},</if>
+            <if test="userType != null">user_type = #{userType},</if>
+            <if test="adminLevel != null">admin_level = #{adminLevel},</if>
+            <if test="regionId != null">region_id = #{regionId},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = #{updateTime}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLastLoginTime">
+        UPDATE sys_user
+        SET last_login_time = #{loginTime}, update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM sys_user WHERE id = #{id}
+    </delete>
+
+</mapper>

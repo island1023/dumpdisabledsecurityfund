@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.RoleMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.Role">
+        <id column="id" property="id"/>
+        <result column="role_name" property="roleName"/>
+        <result column="role_code" property="roleCode"/>
+        <result column="role_type" property="roleType"/>
+        <result column="data_scope" property="dataScope"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO role(
+            role_name, role_code, role_type, data_scope,
+            remark, create_time, update_time
+        ) VALUES(
+                    #{roleName}, #{roleCode}, #{roleType}, #{dataScope},
+                    #{remark}, #{createTime}, #{updateTime}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM role WHERE id = #{id}
+    </select>
+
+    <select id="selectByRoleCode" resultMap="BaseResultMap">
+        SELECT * FROM role WHERE role_code = #{roleCode}
+    </select>
+
+    <select id="selectByCode" resultMap="BaseResultMap">
+        SELECT * FROM role WHERE role_code = #{roleCode} LIMIT 1
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM role ORDER BY id
+    </select>
+
+    <select id="selectByRoleType" resultMap="BaseResultMap">
+        SELECT * FROM role WHERE role_type = #{roleType} ORDER BY id
+    </select>
+
+    <update id="updateById">
+        UPDATE role
+        <set>
+            <if test="roleName != null">role_name = #{roleName},</if>
+            <if test="roleCode != null">role_code = #{roleCode},</if>
+            <if test="roleType != null">role_type = #{roleType},</if>
+            <if test="dataScope != null">data_scope = #{dataScope},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = #{updateTime}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM role WHERE id = #{id}
+    </delete>
+
+</mapper>

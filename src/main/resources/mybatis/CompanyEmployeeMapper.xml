@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.CompanyEmployeeMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.CompanyEmployee">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="name" property="name"/>
+        <result column="id_card" property="idCard"/>
+        <result column="job_position" property="jobPosition"/>
+        <result column="entry_date" property="entryDate"/>
+        <result column="is_active" property="isActive"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO company_employee(
+            company_id, name, id_card, job_position, entry_date, is_active, create_time, update_time
+        ) VALUES(
+                    #{companyId}, #{name}, #{idCard}, #{jobPosition}, #{entryDate}, #{isActive}, #{createTime}, #{updateTime}
+                )
+    </insert>
+
+    <select id="countActiveByCompanyId" resultType="int">
+        SELECT COUNT(1) FROM company_employee
+        WHERE company_id = #{companyId} AND is_active = 1
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM company_employee WHERE id = #{id}
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM company_employee
+        WHERE company_id = #{companyId}
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByCompanyIdAndStatus" resultMap="BaseResultMap">
+        SELECT * FROM company_employee
+        WHERE company_id = #{companyId} AND is_active = #{isActive}
+        ORDER BY id DESC
+    </select>
+
+    <update id="updateById">
+        UPDATE company_employee
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
+            <if test="jobPosition != null">job_position = #{jobPosition},</if>
+            <if test="entryDate != null">entry_date = #{entryDate},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            update_time = #{updateTime}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM company_employee WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByCompanyId">
+        DELETE FROM company_employee WHERE company_id = #{companyId}
+    </delete>
+
+</mapper>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.FundUsageMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.FundUsage">
+        <id column="id" property="id"/>
+        <result column="project_name" property="projectName"/>
+        <result column="amount" property="amount"/>
+        <result column="usage_date" property="usageDate"/>
+        <result column="region_id" property="regionId"/>
+        <result column="description" property="description"/>
+        <result column="audit_status" property="auditStatus"/>
+        <result column="auditor_id" property="auditorId"/>
+        <result column="audit_time" property="auditTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fund_usage(
+            project_name, amount, usage_date, region_id, description,
+            audit_status, auditor_id, audit_time
+        ) VALUES(
+                    #{projectName}, #{amount}, #{usageDate}, #{regionId}, #{description},
+                    #{auditStatus}, #{auditorId}, #{auditTime}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM fund_usage WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM fund_usage
+        ORDER BY usage_date DESC
+    </select>
+
+    <select id="selectByRegionId" resultMap="BaseResultMap">
+        SELECT * FROM fund_usage
+        WHERE region_id = #{regionId}
+        ORDER BY usage_date DESC
+    </select>
+
+    <select id="selectByAuditStatus" resultMap="BaseResultMap">
+        SELECT * FROM fund_usage
+        WHERE audit_status = #{auditStatus}
+        ORDER BY usage_date DESC
+    </select>
+
+    <select id="sumAmountByYear" resultType="java.lang.Double">
+        SELECT IFNULL(SUM(amount), 0)
+        FROM fund_usage
+        WHERE YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d %H:%i:%s')) = #{year}
+          AND audit_status = 1
+    </select>
+
+    <select id="sumAmountByRegionAndYear" resultType="java.lang.Double">
+        SELECT IFNULL(SUM(amount), 0)
+        FROM fund_usage
+        WHERE region_id = #{regionId}
+            AND YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d %H:%i:%s')) = #{year}
+          AND audit_status = 1
+    </select>
+
+    <update id="updateById">
+        UPDATE fund_usage
+        <set>
+            <if test="projectName != null">project_name = #{projectName},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="usageDate != null">usage_date = #{usageDate},</if>
+            <if test="regionId != null">region_id = #{regionId},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="auditStatus != null">audit_status = #{auditStatus},</if>
+            <if test="auditorId != null">auditor_id = #{auditorId},</if>
+            <if test="auditTime != null">audit_time = #{auditTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAuditStatus">
+        UPDATE fund_usage
+        SET audit_status = #{auditStatus},
+            auditor_id = #{auditorId},
+            audit_time = #{auditTime}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM fund_usage WHERE id = #{id}
+    </delete>
+
+</mapper>
