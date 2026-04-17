@@ -8,7 +8,7 @@ import java.util.List;
 
 @Mapper
 public interface PaymentRecordMapper {
-    int insert(PaymentRecord paymentRecord);
+    int insert(PaymentRecord record);
 
     PaymentRecord selectById(@Param("id") Long id);
 
@@ -16,11 +16,30 @@ public interface PaymentRecordMapper {
 
     List<PaymentRecord> selectByStatus(@Param("status") Integer status);
 
-    Double sumActualAmountByYear(@Param("year") Integer year);
-
-    int updateById(PaymentRecord paymentRecord);
-
-    int updateStatus(@Param("id") Long id, @Param("status") Integer status, @Param("confirmUserId") Long confirmUserId);
+    int updateById(PaymentRecord record);
 
     int deleteById(@Param("id") Long id);
+
+    /**
+     * 根据公司ID查询缴费记录
+     * @param companyId 公司ID
+     * @return 缴费记录列表
+     */
+    List<PaymentRecord> selectByCompanyId(@Param("companyId") Long companyId);
+
+    /**
+     * 分页查询缴费记录
+     * @param companyId 公司ID
+     * @param offset 偏移量
+     * @param limit 每页数量
+     * @return 缴费记录列表
+     */
+    List<PaymentRecord> selectRecordsWithPage(@Param("companyId") Long companyId, @Param("offset") int offset, @Param("limit") int limit);
+
+    /**
+     * 统计缴费记录总数
+     * @param companyId 公司ID
+     * @return 总数
+     */
+    long countRecords(@Param("companyId") Long companyId);
 }

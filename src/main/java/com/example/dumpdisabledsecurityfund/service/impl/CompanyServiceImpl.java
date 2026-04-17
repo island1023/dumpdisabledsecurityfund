@@ -1,18 +1,30 @@
 package com.example.dumpdisabledsecurityfund.service.impl;
 
 import com.example.dumpdisabledsecurityfund.common.LogOperation;
+import com.example.dumpdisabledsecurityfund.common.PageResult;
 import com.example.dumpdisabledsecurityfund.common.Result;
 import com.example.dumpdisabledsecurityfund.entity.Company;
+import com.example.dumpdisabledsecurityfund.entity.CompanyDisabledEmployee;
+import com.example.dumpdisabledsecurityfund.entity.CompanyEmployee;
 import com.example.dumpdisabledsecurityfund.entity.CompanyUser;
+import com.example.dumpdisabledsecurityfund.entity.Region;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyDisabledEmployeeMapper;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyEmployeeMapper;
 import com.example.dumpdisabledsecurityfund.mapper.CompanyMapper;
 import com.example.dumpdisabledsecurityfund.mapper.CompanyUserMapper;
+import com.example.dumpdisabledsecurityfund.mapper.RegionMapper;
 import com.example.dumpdisabledsecurityfund.service.CompanyService;
 import com.example.dumpdisabledsecurityfund.util.DateUtil;
 import com.example.dumpdisabledsecurityfund.util.ExcelUtil;
 import com.example.dumpdisabledsecurityfund.util.PasswordUtil;
+import com.example.dumpdisabledsecurityfund.vo.CompanyDetailVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -20,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class CompanyServiceImpl implements CompanyService {
@@ -27,9 +40,67 @@ public class CompanyServiceImpl implements CompanyService {
     private CompanyMapper companyMapper;
     @Resource
     private CompanyUserMapper companyUserMapper;
+    @Resource
+    private CompanyEmployeeMapper companyEmployeeMapper;
+    @Resource
+    private CompanyDisabledEmployeeMapper companyDisabledEmployeeMapper;
+    @Resource
+    private RegionMapper regionMapper;
 
     private static final Pattern PHONE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
     private static final Pattern CREDIT_CODE_PATTERN = Pattern.compile("^[0-9A-HJ-NPQRTUWXY]{2}\\d{6}[0-9A-HJ-NPQRTUWXY]{10}$");
+
+    @Override
+    public Result<?> list(String keyword, Integer pageNum, Integer pageSize) {
+        if (pageNum == null || pageNum < 1) pageNum = 1;
+        if (pageSize == null || pageSize < 1) pageSize = 20;
+
+        int offset = (pageNum - 1) * pageSize;
+        List<Company> companies = companyMapper.selectCompaniesWithPage(keyword, offset, pageSize);
+        long total = companyMapper.countCompanies(keyword);
+
+        List<CompanyDetailVO> voList = companies.stream().map(this::convertToDetailVO).collect(Collectors.toList());
+        PageResult<CompanyDetailVO> pageResult = PageResult.build(total, pageNum, pageSize, voList);
+
+        return Result.success(pageResult);
+    }
+
+    @Override
+    public Result<?> getDetail(Long id) {
+        Company company = companyMapper.selectById(id);
+        if (company == null) {
+            return Result.error("企业不存在");
+        }
+
+        CompanyDetailVO vo = convertToDetailVO(company);
+
+        Long companyId = company.getId();
+        long totalEmployees = companyEmployeeMapper.selectByCompanyId(companyId).size();
+        long disabledEmployees = companyDisabledEmployeeMapper.selectByCompanyIdAndStatus(companyId, 1).size();
+
+        vo.setTotalEmployees((int) totalEmployees);
+        vo.setDisabledEmployees((int) disabledEmployees);
+
+        return Result.success(vo);
+    }
+
+    @Override
+    public Result<?> getCurrentCompanyInfo() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return Result.error("无法获取请求上下文");
+        }
+
+        HttpServletRequest request = attributes.getRequest();
+        Object companyIdObj = request.getAttribute("companyId");
+
+        if (companyIdObj == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+
+        Long companyId = Long.valueOf(companyIdObj.toString());
+        return getDetail(companyId);
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -131,4 +202,23 @@ public class CompanyServiceImpl implements CompanyService {
             throw new RuntimeException("导入失败: " + e.getMessage(), e);
         }
     }
+
+    private CompanyDetailVO convertToDetailVO(Company company) {
+        CompanyDetailVO vo = new CompanyDetailVO();
+        BeanUtils.copyProperties(company, vo);
+
+        if (company.getStatus() != null) {
+            vo.setStatusName(company.getStatus() == 1 ? "正常" : "注销");
+        }
+
+        if (company.getRegionId() != null) {
+            Region region = regionMapper.selectById(company.getRegionId());
+            if (region != null) {
+                vo.setRegionName(region.getName());
+            }
+        }
+
+        return vo;
+    }
 }
+

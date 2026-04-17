@@ -55,10 +55,5 @@ public class CalculationRuleController {
     public Result<?> activateRule(@RequestParam Long id, @RequestParam Integer year) {
         return calculationRuleService.activateRule(id, year);
     }
-
-    @GetMapping("/calculate")
-    @RequirePermission(roles = {"admin_system", "admin_city", "admin_district", "company_user"})
-    public Result<?> calculateWithRule(@RequestParam Long companyId, @RequestParam Integer year) {
-        return calculationRuleService.calculateWithRule(companyId, year);
-    }
 }
+

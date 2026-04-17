@@ -10,8 +10,6 @@ import java.util.List;
 public interface CompanyEmployeeMapper {
     int insert(CompanyEmployee employee);
 
-    int countActiveByCompanyId(Long companyId);
-
     CompanyEmployee selectById(@Param("id") Long id);
 
     List<CompanyEmployee> selectByCompanyId(@Param("companyId") Long companyId);
@@ -22,5 +20,26 @@ public interface CompanyEmployeeMapper {
 
     int deleteById(@Param("id") Long id);
 
-    int deleteByCompanyId(@Param("companyId") Long companyId);
+    /**
+     * 分页查询员工
+     * @param companyId 公司ID
+     * @param offset 偏移量
+     * @param limit 每页数量
+     * @return 员工列表
+     */
+    List<CompanyEmployee> selectEmployeesWithPage(@Param("companyId") Long companyId, @Param("offset") int offset, @Param("limit") int limit);
+
+    /**
+     * 统计员工总数
+     * @param companyId 公司ID
+     * @return 总数
+     */
+    long countEmployees(@Param("companyId") Long companyId);
+
+    /**
+     * 统计在职员工数
+     * @param companyId 公司ID
+     * @return 在职员工数
+     */
+    long countActiveByCompanyId(@Param("companyId") Long companyId);
 }

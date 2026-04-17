@@ -36,8 +36,11 @@ public class CalculationServiceImpl implements CalculationService {
             return Result.error("公司ID和年度不能为空");
         }
 
-        int totalEmployees = companyEmployeeMapper.countActiveByCompanyId(companyId);
-        int disabledEmployees = companyDisabledEmployeeMapper.countActiveByCompanyId(companyId);
+        long totalEmployeesLong = companyEmployeeMapper.countActiveByCompanyId(companyId);
+        long disabledEmployeesLong = companyDisabledEmployeeMapper.countActiveByCompanyId(companyId);
+
+        int totalEmployees = (int) totalEmployeesLong;
+        int disabledEmployees = (int) disabledEmployeesLong;
 
         Double ratio = calculationRuleMapper.selectActiveRatioByYear(year);
         double requiredRatio = ratio != null ? ratio : DEFAULT_REQUIRED_RATIO;

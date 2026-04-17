@@ -16,32 +16,35 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO company_employee(
-            company_id, name, id_card, job_position, entry_date, is_active, create_time, update_time
-        ) VALUES(
-                    #{companyId}, #{name}, #{idCard}, #{jobPosition}, #{entryDate}, #{isActive}, #{createTime}, #{updateTime}
-                )
+        INSERT INTO company_employee(company_id, name, id_card, job_position, entry_date, is_active, create_time, update_time)
+        VALUES(#{companyId}, #{name}, #{idCard}, #{jobPosition}, #{entryDate}, #{isActive}, #{createTime}, #{updateTime})
     </insert>
-
-    <select id="countActiveByCompanyId" resultType="int">
-        SELECT COUNT(1) FROM company_employee
-        WHERE company_id = #{companyId} AND is_active = 1
-    </select>
 
     <select id="selectById" resultMap="BaseResultMap">
         SELECT * FROM company_employee WHERE id = #{id}
     </select>
 
     <select id="selectByCompanyId" resultMap="BaseResultMap">
-        SELECT * FROM company_employee
-        WHERE company_id = #{companyId}
-        ORDER BY id DESC
+        SELECT * FROM company_employee WHERE company_id = #{companyId} ORDER BY create_time DESC
     </select>
 
     <select id="selectByCompanyIdAndStatus" resultMap="BaseResultMap">
+        SELECT * FROM company_employee WHERE company_id = #{companyId} AND is_active = #{isActive} ORDER BY create_time DESC
+    </select>
+
+    <select id="selectEmployeesWithPage" resultMap="BaseResultMap">
         SELECT * FROM company_employee
-        WHERE company_id = #{companyId} AND is_active = #{isActive}
-        ORDER BY id DESC
+        WHERE company_id = #{companyId}
+        ORDER BY create_time DESC
+            LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countEmployees" resultType="long">
+        SELECT COUNT(*) FROM company_employee WHERE company_id = #{companyId}
+    </select>
+
+    <select id="countActiveByCompanyId" resultType="long">
+        SELECT COUNT(*) FROM company_employee WHERE company_id = #{companyId} AND is_active = 1
     </select>
 
     <update id="updateById">
@@ -52,17 +55,13 @@
             <if test="jobPosition != null">job_position = #{jobPosition},</if>
             <if test="entryDate != null">entry_date = #{entryDate},</if>
             <if test="isActive != null">is_active = #{isActive},</if>
-            update_time = #{updateTime}
+            <if test="updateTime != null">update_time = #{updateTime},</if>
         </set>
         WHERE id = #{id}
     </update>
 
     <delete id="deleteById">
         DELETE FROM company_employee WHERE id = #{id}
-    </delete>
-
-    <delete id="deleteByCompanyId">
-        DELETE FROM company_employee WHERE company_id = #{companyId}
     </delete>
 
 </mapper>

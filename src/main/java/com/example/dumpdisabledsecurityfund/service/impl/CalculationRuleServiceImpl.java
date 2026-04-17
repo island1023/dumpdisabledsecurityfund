@@ -146,8 +146,11 @@ public class CalculationRuleServiceImpl implements CalculationRuleService {
             return Result.error(year + "年度未配置计算规则，请先配置规则");
         }
 
-        int totalEmployees = companyEmployeeMapper.countActiveByCompanyId(companyId);
-        int disabledEmployees = companyDisabledEmployeeMapper.countActiveByCompanyId(companyId);
+        long totalEmployeesLong = companyEmployeeMapper.countActiveByCompanyId(companyId);
+        long disabledEmployeesLong = companyDisabledEmployeeMapper.countActiveByCompanyId(companyId);
+
+        int totalEmployees = (int) totalEmployeesLong;
+        int disabledEmployees = (int) disabledEmployeesLong;
 
         double requiredRatio = rule.getRequiredRatio();
         int shouldDisabled = (int) Math.ceil(totalEmployees * requiredRatio / 100D);

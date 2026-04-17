@@ -2,6 +2,7 @@ package com.example.dumpdisabledsecurityfund.service.impl;
 
 import com.example.dumpdisabledsecurityfund.common.CaptchaStore;
 import com.example.dumpdisabledsecurityfund.common.Result;
+import com.example.dumpdisabledsecurityfund.dto.ChangePasswordDTO;
 import com.example.dumpdisabledsecurityfund.dto.LoginDTO;
 import com.example.dumpdisabledsecurityfund.entity.CompanyUser;
 import com.example.dumpdisabledsecurityfund.entity.SysUser;
@@ -57,6 +58,137 @@ public class AuthServiceImpl implements AuthService {
             return loginCompanyUser(companyUser, dto.getPassword());
         }
         return Result.error("account not found");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<?> changePassword(Long userId, String accountType, ChangePasswordDTO dto) {
+        if (userId == null || accountType == null) {
+            return Result.error("用户信息缺失");
+        }
+
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            return Result.error("两次输入的新密码不一致");
+        }
+
+        if (dto.getNewPassword().length() < 6) {
+            return Result.error("新密码长度不能少于6位");
+        }
+
+        try {
+            if ("sys".equals(accountType)) {
+                return changeSysUserPassword(userId, dto);
+            } else if ("company".equals(accountType)) {
+                return changeCompanyUserPassword(userId, dto);
+            } else {
+                return Result.error("无效的账户类型");
+            }
+        } catch (Exception e) {
+            return Result.error("修改密码失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<?> updateProfile(Object profile) {
+        if (!(profile instanceof Map)) {
+            return Result.error("参数格式错误");
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> profileMap = (Map<String, Object>) profile;
+
+        Object userIdObj = profileMap.get("userId");
+        Object accountTypeObj = profileMap.get("accountType");
+
+        if (userIdObj == null || accountTypeObj == null) {
+            return Result.error("用户信息缺失");
+        }
+
+        Long userId = Long.valueOf(userIdObj.toString());
+        String accountType = accountTypeObj.toString();
+
+        if ("sys".equals(accountType)) {
+            SysUser user = sysUserMapper.selectById(userId);
+            if (user == null) {
+                return Result.error("用户不存在");
+            }
+
+            if (profileMap.containsKey("realName")) {
+                user.setRealName(profileMap.get("realName").toString());
+            }
+
+            user.setUpdateTime(DateUtil.now());
+            sysUserMapper.updateById(user);
+
+            return Result.success("修改成功");
+        } else if ("company".equals(accountType)) {
+            CompanyUser user = companyUserMapper.selectById(userId);
+            if (user == null) {
+                return Result.error("用户不存在");
+            }
+
+            if (profileMap.containsKey("name")) {
+                user.setName(profileMap.get("name").toString());
+            }
+            if (profileMap.containsKey("mobile")) {
+                user.setMobile(profileMap.get("mobile").toString());
+            }
+            if (profileMap.containsKey("email")) {
+                user.setEmail(profileMap.get("email").toString());
+            }
+
+            user.setUpdateTime(DateUtil.now());
+            companyUserMapper.updateById(user);
+
+            return Result.success("修改成功");
+        } else {
+            return Result.error("无效的账户类型");
+        }
+    }
+
+    private Result<?> changeSysUserPassword(Long userId, ChangePasswordDTO dto) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null) {
+            return Result.error("用户不存在");
+        }
+
+        if (!passwordMatches(user.getPassword(), dto.getOldPassword())) {
+            return Result.error("旧密码错误");
+        }
+
+        String encryptedPassword = PasswordUtil.encrypt(dto.getNewPassword());
+
+        String now = DateUtil.now();
+        int rows = sysUserMapper.updatePassword(userId, encryptedPassword, now);
+
+        if (rows > 0) {
+            return Result.success("密码修改成功");
+        } else {
+            return Result.error("密码修改失败");
+        }
+    }
+
+    private Result<?> changeCompanyUserPassword(Long userId, ChangePasswordDTO dto) {
+        CompanyUser user = companyUserMapper.selectById(userId);
+        if (user == null) {
+            return Result.error("用户不存在");
+        }
+
+        if (!passwordMatches(user.getPassword(), dto.getOldPassword())) {
+            return Result.error("旧密码错误");
+        }
+
+        String encryptedPassword = PasswordUtil.encrypt(dto.getNewPassword());
+
+        String now = DateUtil.now();
+        int rows = companyUserMapper.updatePassword(userId, encryptedPassword, now);
+
+        if (rows > 0) {
+            return Result.success("密码修改成功");
+        } else {
+            return Result.error("密码修改失败");
+        }
     }
 
     private Result<?> loginSystemUser(SysUser user, String password) {
@@ -173,4 +305,3 @@ public class AuthServiceImpl implements AuthService {
         return menus;
     }
 }
-

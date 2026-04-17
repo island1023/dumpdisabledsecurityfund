@@ -11,4 +11,9 @@ public interface RoleService {
     Result<?> update(Role role);
 
     Result<?> delete(Long id);
+
+    Result<?> toggleStatus(Long id, Integer status);
+
+    Result<?> listWithKeyword(String keyword);
 }
+

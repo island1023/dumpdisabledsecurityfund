@@ -25,4 +25,13 @@ public interface CompanyUserMapper {
     int deleteById(@Param("id") Long id);
 
     int deleteByCompanyId(@Param("companyId") Long companyId);
+
+    /**
+     * 更新密码
+     * @param id 用户ID
+     * @param password 新密码（已加密）
+     * @param updateTime 更新时间
+     * @return 影响行数
+     */
+    int updatePassword(@Param("id") Long id, @Param("password") String password, @Param("updateTime") String updateTime);
 }

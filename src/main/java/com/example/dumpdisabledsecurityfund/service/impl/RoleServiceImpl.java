@@ -10,6 +10,9 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class RoleServiceImpl implements RoleService {
     @Resource
@@ -17,7 +20,25 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public Result<?> list() {
-        return Result.success(roleMapper.selectAll());
+        List<Role> roles = roleMapper.selectAll();
+        return Result.success(roles);
+    }
+
+    @Override
+    public Result<?> listWithKeyword(String keyword) {
+        List<Role> roles = roleMapper.selectAll();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String lowerKeyword = keyword.toLowerCase();
+            roles = roles.stream()
+                    .filter(role ->
+                            (role.getRoleName() != null && role.getRoleName().toLowerCase().contains(lowerKeyword)) ||
+                                    (role.getRoleCode() != null && role.getRoleCode().toLowerCase().contains(lowerKeyword))
+                    )
+                    .collect(Collectors.toList());
+        }
+
+        return Result.success(roles);
     }
 
     @Override
@@ -69,5 +90,20 @@ public class RoleServiceImpl implements RoleService {
             return Result.error("role not found");
         }
         return Result.success();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @LogOperation(value = "切换角色状态", table = "role")
+    public Result<?> toggleStatus(Long id, Integer status) {
+        Role role = roleMapper.selectById(id);
+        if (role == null) {
+            return Result.error("角色不存在");
+        }
+
+        role.setUpdateTime(DateUtil.now());
+        roleMapper.updateById(role);
+
+        return Result.success("操作成功");
     }
 }

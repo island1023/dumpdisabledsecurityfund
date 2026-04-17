@@ -20,44 +20,28 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO company_disabled_employee(
-            company_id, name, id_card, disability_cert_no, disability_type,
-            disability_level, job_position, entry_date, is_active,
-            audit_pass_time, create_time, update_time
-        ) VALUES(
-                    #{companyId}, #{name}, #{idCard}, #{disabilityCertNo}, #{disabilityType},
-                    #{disabilityLevel}, #{jobPosition}, #{entryDate}, #{isActive},
-                    #{auditPassTime}, #{createTime}, #{updateTime}
-                )
+        INSERT INTO company_disabled_employee(company_id, name, id_card, disability_cert_no, disability_type, disability_level, job_position, entry_date, is_active, audit_pass_time, create_time, update_time)
+        VALUES(#{companyId}, #{name}, #{idCard}, #{disabilityCertNo}, #{disabilityType}, #{disabilityLevel}, #{jobPosition}, #{entryDate}, #{isActive}, #{auditPassTime}, #{createTime}, #{updateTime})
     </insert>
-
-    <select id="countActiveByCompanyId" resultType="int">
-        SELECT COUNT(1) FROM company_disabled_employee
-        WHERE company_id = #{companyId} AND is_active = 1
-    </select>
 
     <select id="selectById" resultMap="BaseResultMap">
         SELECT * FROM company_disabled_employee WHERE id = #{id}
     </select>
 
     <select id="selectByCompanyId" resultMap="BaseResultMap">
-        SELECT * FROM company_disabled_employee
-        WHERE company_id = #{companyId}
-        ORDER BY id DESC
+        SELECT * FROM company_disabled_employee WHERE company_id = #{companyId} ORDER BY create_time DESC
     </select>
 
     <select id="selectByCompanyIdAndStatus" resultMap="BaseResultMap">
-        SELECT * FROM company_disabled_employee
-        WHERE company_id = #{companyId} AND is_active = #{isActive}
-        ORDER BY id DESC
+        SELECT * FROM company_disabled_employee WHERE company_id = #{companyId} AND is_active = #{isActive} ORDER BY create_time DESC
     </select>
 
     <select id="selectByIdCard" resultMap="BaseResultMap">
-        SELECT * FROM company_disabled_employee WHERE id_card = #{idCard}
+        SELECT * FROM company_disabled_employee WHERE id_card = #{idCard} LIMIT 1
     </select>
 
-    <select id="selectByDisabilityCertNo" resultMap="BaseResultMap">
-        SELECT * FROM company_disabled_employee WHERE disability_cert_no = #{disabilityCertNo}
+    <select id="countActiveByCompanyId" resultType="long">
+        SELECT COUNT(*) FROM company_disabled_employee WHERE company_id = #{companyId} AND is_active = 1
     </select>
 
     <update id="updateById">
@@ -72,17 +56,13 @@
             <if test="entryDate != null">entry_date = #{entryDate},</if>
             <if test="isActive != null">is_active = #{isActive},</if>
             <if test="auditPassTime != null">audit_pass_time = #{auditPassTime},</if>
-            update_time = #{updateTime}
+            <if test="updateTime != null">update_time = #{updateTime},</if>
         </set>
         WHERE id = #{id}
     </update>
 
     <delete id="deleteById">
         DELETE FROM company_disabled_employee WHERE id = #{id}
-    </delete>
-
-    <delete id="deleteByCompanyId">
-        DELETE FROM company_disabled_employee WHERE company_id = #{companyId}
     </delete>
 
 </mapper>

@@ -8,25 +8,22 @@ import java.util.List;
 
 @Mapper
 public interface NoticeMapper {
-    int insert(Notice notice);
-
     Notice selectById(@Param("id") Long id);
 
     List<Notice> selectByIds(@Param("ids") List<Long> ids);
 
     List<Notice> selectByCompanyId(@Param("companyId") Long companyId);
 
-    List<Notice> selectByNoticeType(@Param("noticeType") Integer noticeType);
+    List<Notice> selectByCompanyIdWithPage(@Param("companyId") Long companyId,
+                                           @Param("offset") int offset,
+                                           @Param("limit") int limit,
+                                           @Param("unreadOnly") Boolean unreadOnly);
 
-    List<Notice> selectBySendStatus(@Param("sendStatus") Integer sendStatus);
+    long countByCompanyId(@Param("companyId") Long companyId, @Param("unreadOnly") Boolean unreadOnly);
 
-    Notice selectByNoticeNumber(@Param("noticeNumber") String noticeNumber);
-
-    int updateById(Notice notice);
-
-    int incrementPrintCount(@Param("id") Long id, @Param("printTime") String printTime);
+    int insert(Notice notice);
 
     int updateSendStatus(@Param("id") Long id, @Param("sendStatus") Integer sendStatus);
 
-    int deleteById(@Param("id") Long id);
+    int incrementPrintCount(@Param("id") Long id);
 }

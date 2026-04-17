@@ -1,22 +1,105 @@
 package com.example.dumpdisabledsecurityfund.service.impl;
 
 import com.example.dumpdisabledsecurityfund.common.LogOperation;
+import com.example.dumpdisabledsecurityfund.common.PageResult;
 import com.example.dumpdisabledsecurityfund.common.Result;
 import com.example.dumpdisabledsecurityfund.entity.PayableAmount;
+import com.example.dumpdisabledsecurityfund.entity.PaymentRecord;
 import com.example.dumpdisabledsecurityfund.mapper.PayableAmountMapper;
+import com.example.dumpdisabledsecurityfund.mapper.PaymentRecordMapper;
 import com.example.dumpdisabledsecurityfund.service.PaymentService;
+import com.example.dumpdisabledsecurityfund.util.DateUtil;
 import com.example.dumpdisabledsecurityfund.util.ExcelUtil;
+import com.example.dumpdisabledsecurityfund.vo.PaymentStatisticsVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
     @Resource
     PayableAmountMapper payableAmountMapper;
+
+    @Resource
+    PaymentRecordMapper paymentRecordMapper;
+
+    @Override
+    public Result<?> getPaymentStatistics() {
+        Long companyId = getCurrentCompanyId();
+        if (companyId == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+
+        int currentYear = java.time.Year.now().getValue();
+
+        List<PayableAmount> payableList = payableAmountMapper.selectByCompanyId(companyId);
+
+        double totalAmount = 0;
+        double paidAmount = 0;
+
+        for (PayableAmount payable : payableList) {
+            if (payable.getYear() == currentYear) {
+                totalAmount += payable.getCalculatedAmount();
+
+                List<PaymentRecord> records = paymentRecordMapper.selectByPayableId(payable.getId());
+                for (PaymentRecord record : records) {
+                    if (record.getStatus() == 1) {
+                        paidAmount += record.getActualAmount();
+                    }
+                }
+            }
+        }
+
+        double pendingAmount = totalAmount - paidAmount;
+
+        PaymentStatisticsVO vo = new PaymentStatisticsVO();
+        vo.setPaidAmount(paidAmount);
+        vo.setPendingAmount(pendingAmount);
+        vo.setTotalAmount(totalAmount);
+        vo.setYear(currentYear);
+
+        return Result.success(vo);
+    }
+
+    @Override
+    public Result<?> getPayments(Integer page, Integer pageSize) {
+        if (page == null || page < 1) page = 1;
+        if (pageSize == null || pageSize < 1) pageSize = 20;
+
+        Long companyId = getCurrentCompanyId();
+        if (companyId == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+
+        int offset = (page - 1) * pageSize;
+        List<PaymentRecord> records = paymentRecordMapper.selectRecordsWithPage(companyId, offset, pageSize);
+        long total = paymentRecordMapper.countRecords(companyId);
+
+        List<Map<String, Object>> result = records.stream().map(record -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", record.getId());
+            map.put("period", record.getPaymentDate());
+            map.put("amount", "￥" + String.format("%.2f", record.getActualAmount()));
+            map.put("date", record.getPaymentDate());
+            map.put("status", record.getStatus() == 1 ? "已缴费" : "待缴费");
+            return map;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("total", total);
+        data.put("list", result);
+
+        return Result.success(data);
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -42,5 +125,21 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             throw new RuntimeException("导入失败: " + e.getMessage(), e);
         }
+    }
+
+    private Long getCurrentCompanyId() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return null;
+        }
+
+        HttpServletRequest request = attributes.getRequest();
+        Object companyIdObj = request.getAttribute("companyId");
+
+        if (companyIdObj == null) {
+            return null;
+        }
+
+        return Long.valueOf(companyIdObj.toString());
     }
 }

@@ -42,6 +42,24 @@
         ORDER BY print_time DESC
     </select>
 
+    <select id="selectByCompanyIdWithPage" resultMap="BaseResultMap">
+        SELECT * FROM notice
+        WHERE company_id = #{companyId}
+        <if test="unreadOnly != null and unreadOnly">
+            AND send_status = 0
+        </if>
+        ORDER BY print_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCompanyId" resultType="long">
+        SELECT COUNT(*) FROM notice
+        WHERE company_id = #{companyId}
+        <if test="unreadOnly != null and unreadOnly">
+            AND send_status = 0
+        </if>
+    </select>
+
     <select id="selectByNoticeType" resultMap="BaseResultMap">
         SELECT * FROM notice
         WHERE notice_type = #{noticeType}
@@ -89,3 +107,4 @@
     </delete>
 
 </mapper>
+

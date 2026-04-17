@@ -10,21 +10,27 @@ import java.util.List;
 public interface CompanyDisabledEmployeeMapper {
     int insert(CompanyDisabledEmployee employee);
 
-    int countActiveByCompanyId(Long companyId);
-
     CompanyDisabledEmployee selectById(@Param("id") Long id);
 
     List<CompanyDisabledEmployee> selectByCompanyId(@Param("companyId") Long companyId);
 
     List<CompanyDisabledEmployee> selectByCompanyIdAndStatus(@Param("companyId") Long companyId, @Param("isActive") Integer isActive);
 
-    CompanyDisabledEmployee selectByIdCard(@Param("idCard") String idCard);
-
-    CompanyDisabledEmployee selectByDisabilityCertNo(@Param("disabilityCertNo") String disabilityCertNo);
-
     int updateById(CompanyDisabledEmployee employee);
 
     int deleteById(@Param("id") Long id);
 
-    int deleteByCompanyId(@Param("companyId") Long companyId);
+    /**
+     * 根据身份证号查询
+     * @param idCard 身份证号
+     * @return 残疾员工
+     */
+    CompanyDisabledEmployee selectByIdCard(@Param("idCard") String idCard);
+
+    /**
+     * 统计在职残疾员工数
+     * @param companyId 公司ID
+     * @return 在职残疾员工数
+     */
+    long countActiveByCompanyId(@Param("companyId") Long companyId);
 }
