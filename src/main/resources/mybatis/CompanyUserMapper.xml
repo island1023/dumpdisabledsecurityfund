@@ -12,7 +12,6 @@
         <result column="mobile" property="mobile"/>
         <result column="email" property="email"/>
         <result column="status" property="status"/>
-        <result column="last_login_time" property="lastLoginTime"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
@@ -20,10 +19,10 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO company_user(
             company_id, username, password, name, mobile, email,
-            status, last_login_time, create_time, update_time
+            status, create_time, update_time
         ) VALUES(
                     #{companyId}, #{username}, #{password}, #{name}, #{mobile}, #{email},
-                    #{status}, #{lastLoginTime}, #{createTime}, #{updateTime}
+                    #{status}, #{createTime}, #{updateTime}
                 )
     </insert>
 
@@ -55,7 +54,6 @@
             <if test="mobile != null">mobile = #{mobile},</if>
             <if test="email != null">email = #{email},</if>
             <if test="status != null">status = #{status},</if>
-            <if test="lastLoginTime != null">last_login_time = #{lastLoginTime},</if>
             update_time = #{updateTime}
         </set>
         WHERE id = #{id}
@@ -63,7 +61,7 @@
 
     <update id="updateLastLoginTime">
         UPDATE company_user
-        SET last_login_time = #{loginTime}, update_time = #{updateTime}
+        SET update_time = #{updateTime}
         WHERE id = #{id}
     </update>
 
@@ -82,3 +80,4 @@
     </delete>
 
 </mapper>
+

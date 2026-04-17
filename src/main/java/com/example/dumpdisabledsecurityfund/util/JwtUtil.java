@@ -12,15 +12,13 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
-    // 瀵嗛挜锛?6浣嶄互涓婏級
-    private static final String SECRET_KEY = "disabled_security_fund_2025";
-    private static final long EXPIRE_TIME = 1000 * 60 * 60 * 24; // 1澶?
+    private static final String SECRET_KEY = "disabled_security_fund_2025_jwt_secret_key";
+    private static final long EXPIRE_TIME = 1000 * 60 * 60 * 24;
 
     private static SecretKey getKey() {
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
     }
 
-    // 鐢熸垚 Token
     public static String createToken(Map<String, Object> claims) {
         return Jwts.builder()
                 .setClaims(claims)
@@ -29,7 +27,6 @@ public class JwtUtil {
                 .compact();
     }
 
-    // 瑙ｆ瀽 Token
     public static Claims parseToken(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getKey())
@@ -38,7 +35,6 @@ public class JwtUtil {
                 .getBody();
     }
 
-    // 楠岃瘉 Token 鏄惁鏈夋晥
     public static boolean validateToken(String token) {
         try {
             parseToken(token);

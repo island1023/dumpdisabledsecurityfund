@@ -1,12 +1,15 @@
 package com.example.dumpdisabledsecurityfund.common;
 
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -20,7 +23,10 @@ public class CaptchaStore {
     @Resource(name = "redisTemplate")
     private RedisTemplate<String, Object> redisTemplate;
 
-    public java.util.Map<String, String> create() {
+    @Value("${dev.captcha.show-code:false}")
+    private boolean showCode;
+
+    public Map<String, String> create() {
         String key = UUID.randomUUID().toString().replace("-", "");
 
         String code = String.valueOf((int) ((Math.random() * 9 + 1) * 1000));
@@ -29,11 +35,16 @@ public class CaptchaStore {
 
         redisTemplate.opsForValue().set(CAPTCHA_KEY_PREFIX + key, code, EXPIRE_SECONDS, TimeUnit.SECONDS);
 
-        return java.util.Map.of(
-                "captchaKey", key,
-                "captchaImage", base64Image,
-                "expireInSeconds", String.valueOf(EXPIRE_SECONDS)
-        );
+        Map<String, String> result = new HashMap<>();
+        result.put("captchaKey", key);
+        result.put("captchaImage", base64Image);
+        result.put("expireInSeconds", String.valueOf(EXPIRE_SECONDS));
+
+        if (showCode) {
+            result.put("captchaCode", code);
+        }
+
+        return result;
     }
 
     public boolean validate(String key, String code) {
@@ -111,4 +122,3 @@ public class CaptchaStore {
         return new Color(r, g, b);
     }
 }
-

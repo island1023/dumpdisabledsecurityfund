@@ -1,6 +1,6 @@
 server:
   port: 8080
-  address: 0.0.0.0    # 允许所有设备访问
+  address: 0.0.0.0
 
 spring:
   datasource:
@@ -34,3 +34,9 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 开发环境配置
+dev:
+  captcha:
+    show-code: true  # 是否显示明文验证码（仅开发环境）
+

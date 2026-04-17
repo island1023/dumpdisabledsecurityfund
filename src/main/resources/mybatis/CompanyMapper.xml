@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+                "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.dumpdisabledsecurityfund.mapper.CompanyMapper">
 
     <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.Company">
@@ -16,8 +16,13 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO company(unified_social_credit_code, name, region_id, legal_person, contact_phone, status, create_time, update_time)
-        VALUES(#{unifiedSocialCreditCode}, #{name}, #{regionId}, #{legalPerson}, #{contactPhone}, #{status}, #{createTime}, #{updateTime})
+        INSERT INTO company(
+        unified_social_credit_code, name, region_id, legal_person,
+        contact_phone, status, create_time, update_time
+        ) VALUES(
+        #{unifiedSocialCreditCode}, #{name}, #{regionId}, #{legalPerson},
+        #{contactPhone}, #{status}, #{createTime}, #{updateTime}
+        )
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">
@@ -25,26 +30,44 @@
     </select>
 
     <select id="selectByCreditCode" resultMap="BaseResultMap">
-        SELECT * FROM company WHERE unified_social_credit_code = #{creditCode}
+        SELECT * FROM company WHERE unified_social_credit_code = #{creditCode} LIMIT 1
     </select>
 
     <select id="selectAll" resultMap="BaseResultMap">
-        SELECT * FROM company ORDER BY create_time DESC
+        SELECT * FROM company ORDER BY id DESC
     </select>
 
     <select id="selectByRegionId" resultMap="BaseResultMap">
-        SELECT * FROM company WHERE region_id = #{regionId} ORDER BY create_time DESC
+        SELECT * FROM company WHERE region_id = #{regionId} ORDER BY id DESC
     </select>
 
     <select id="selectByStatus" resultMap="BaseResultMap">
-        SELECT * FROM company WHERE status = #{status} ORDER BY create_time DESC
+        SELECT * FROM company WHERE status = #{status} ORDER BY id DESC
     </select>
+
+    <update id="updateById">
+        UPDATE company
+        <set>
+            <if test="unifiedSocialCreditCode != null">unified_social_credit_code = #{unifiedSocialCreditCode},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="regionId != null">region_id = #{regionId},</if>
+            <if test="legalPerson != null">legal_person = #{legalPerson},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = #{updateTime}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM company WHERE id = #{id}
+    </delete>
 
     <select id="searchCompanies" resultMap="BaseResultMap">
         SELECT * FROM company
         WHERE name LIKE CONCAT('%', #{keyword}, '%')
-           OR unified_social_credit_code LIKE CONCAT('%', #{keyword}, '%')
-        ORDER BY create_time DESC
+        OR unified_social_credit_code LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY id DESC
     </select>
 
     <select id="selectCompaniesWithPage" resultMap="BaseResultMap">
@@ -55,7 +78,7 @@
                 OR unified_social_credit_code LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY id DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
@@ -73,23 +96,4 @@
         SELECT COUNT(*) FROM company
     </select>
 
-    <update id="updateById">
-        UPDATE company
-        <set>
-            <if test="unifiedSocialCreditCode != null">unified_social_credit_code = #{unifiedSocialCreditCode},</if>
-            <if test="name != null">name = #{name},</if>
-            <if test="regionId != null">region_id = #{regionId},</if>
-            <if test="legalPerson != null">legal_person = #{legalPerson},</if>
-            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
-            <if test="status != null">status = #{status},</if>
-            <if test="updateTime != null">update_time = #{updateTime},</if>
-        </set>
-        WHERE id = #{id}
-    </update>
-
-    <delete id="deleteById">
-        DELETE FROM company WHERE id = #{id}
-    </delete>
-
 </mapper>
-
