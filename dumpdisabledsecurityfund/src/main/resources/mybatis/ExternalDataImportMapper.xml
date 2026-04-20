@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.ExternalDataImportMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.ExternalDataImport">
+        <id column="id" property="id"/>
+        <result column="source" property="source"/>
+        <result column="import_type" property="importType"/>
+        <result column="file_name" property="fileName"/>
+        <result column="api_url" property="apiUrl"/>
+        <result column="record_count" property="recordCount"/>
+        <result column="status" property="status"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="operator_id" property="operatorId"/>
+        <result column="import_time" property="importTime"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO external_data_import(
+            source, import_type, file_name, api_url, record_count,
+            status, error_msg, operator_id, import_time, create_time
+        ) VALUES(
+                    #{source}, #{importType}, #{fileName}, #{apiUrl}, #{recordCount},
+                    #{status}, #{errorMsg}, #{operatorId}, #{importTime}, #{createTime}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM external_data_import WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM external_data_import
+        ORDER BY import_time DESC
+    </select>
+
+    <select id="selectBySource" resultMap="BaseResultMap">
+        SELECT * FROM external_data_import
+        WHERE source = #{source}
+        ORDER BY import_time DESC
+    </select>
+
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM external_data_import
+        WHERE status = #{status}
+        ORDER BY import_time DESC
+    </select>
+
+    <select id="selectRecentImports" resultMap="BaseResultMap">
+        SELECT * FROM external_data_import
+        ORDER BY import_time DESC
+            LIMIT #{limit}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE external_data_import
+        SET status = #{status},
+        <if test="errorMsg != null">error_msg = #{errorMsg},</if>
+        update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM external_data_import WHERE id = #{id}
+    </delete>
+
+</mapper>

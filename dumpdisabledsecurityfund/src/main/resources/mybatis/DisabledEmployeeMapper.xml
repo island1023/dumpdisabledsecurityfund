@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.DisabledEmployeeMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.DisabledEmployee">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="company_name" property="companyName"/>
+        <result column="name" property="name"/>
+        <result column="id_card" property="idCard"/>
+        <result column="disability_type" property="disabilityType"/>
+        <result column="disability_level" property="disabilityLevel"/>
+        <result column="hire_date" property="hireDate"/>
+        <result column="year" property="year"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM disabled_employee WHERE id = #{id}
+    </select>
+
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM disabled_employee WHERE status = #{status} ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM disabled_employee WHERE company_id = #{companyId} ORDER BY create_time DESC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO disabled_employee(
+            company_id, company_name, name, id_card, disability_type, disability_level,
+            hire_date, year, status, create_time, update_time
+        ) VALUES(
+            #{companyId}, #{companyName}, #{name}, #{idCard}, #{disabilityType}, #{disabilityLevel},
+            #{hireDate}, #{year}, #{status}, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateById">
+        UPDATE disabled_employee
+        <set>
+            <if test="companyId != null">company_id = #{companyId},</if>
+            <if test="companyName != null">company_name = #{companyName},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
+            <if test="disabilityType != null">disability_type = #{disabilityType},</if>
+            <if test="disabilityLevel != null">disability_level = #{disabilityLevel},</if>
+            <if test="hireDate != null">hire_date = #{hireDate},</if>
+            <if test="year != null">year = #{year},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM disabled_employee WHERE id = #{id}
+    </delete>
+
+</mapper>

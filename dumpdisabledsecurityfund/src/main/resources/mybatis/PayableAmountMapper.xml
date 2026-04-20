@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.PayableAmountMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.PayableAmount">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="year" property="year"/>
+        <result column="total_employee_count" property="totalEmployeeCount"/>
+        <result column="disabled_employee_count" property="disabledEmployeeCount"/>
+        <result column="required_ratio" property="requiredRatio"/>
+        <result column="calculated_amount" property="calculatedAmount"/>
+        <result column="reduction_amount" property="reductionAmount"/>
+        <result column="payable_amount" property="payableAmount"/>
+        <result column="paid_amount" property="paidAmount"/>
+        <result column="payment_status" property="paymentStatus"/>
+        <result column="status" property="status"/>
+        <result column="confirm_time" property="confirmTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payable_amount(
+            company_id, year, total_employee_count, disabled_employee_count,
+            required_ratio, calculated_amount, status, confirm_time
+        ) VALUES(
+                    #{companyId}, #{year}, #{totalEmployeeCount}, #{disabledEmployeeCount},
+                    #{requiredRatio}, #{calculatedAmount}, #{status}, #{confirmTime}
+                )
+    </insert>
+
+    <select id="selectByCompanyAndYear" resultMap="BaseResultMap">
+        SELECT * FROM payable_amount
+        WHERE company_id = #{companyId} AND year = #{year}
+            LIMIT 1
+    </select>
+
+    <update id="updateById">
+        UPDATE payable_amount
+        <set>
+            <if test="totalEmployeeCount != null">total_employee_count = #{totalEmployeeCount},</if>
+            <if test="disabledEmployeeCount != null">disabled_employee_count = #{disabledEmployeeCount},</if>
+            <if test="requiredRatio != null">required_ratio = #{requiredRatio},</if>
+            <if test="calculatedAmount != null">calculated_amount = #{calculatedAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="confirmTime != null">confirm_time = #{confirmTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="sumCalculatedAmountByYear" resultType="java.lang.Double">
+        SELECT IFNULL(SUM(calculated_amount), 0)
+        FROM payable_amount
+        WHERE year = #{year}
+    </select>
+
+    <select id="countByStatusAndYear" resultType="int">
+        SELECT COUNT(1) FROM payable_amount
+        WHERE year = #{year} AND status = #{status}
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM payable_amount WHERE id = #{id}
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM payable_amount
+        WHERE company_id = #{companyId}
+        ORDER BY year DESC
+    </select>
+
+    <select id="selectByYear" resultMap="BaseResultMap">
+        SELECT * FROM payable_amount
+        WHERE year = #{year}
+        ORDER BY company_id
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM payable_amount
+        ORDER BY year DESC, company_id
+    </select>
+
+    <select id="countByYear" resultType="int">
+        SELECT COUNT(1) FROM payable_amount WHERE year = #{year}
+    </select>
+
+    <!-- 分页查询征收列表 -->
+    <select id="selectByYearWithPage" resultMap="BaseResultMap">
+        SELECT pa.* FROM payable_amount pa
+        LEFT JOIN company c ON pa.company_id = c.id
+        <where>
+            pa.year = #{year}
+            <if test="status != null and status != ''">
+                AND pa.payment_status = 
+                <choose>
+                    <when test="status == 'UNPAID'">0</when>
+                    <when test="status == 'PARTIAL'">1</when>
+                    <when test="status == 'PAID'">2</when>
+                </choose>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND c.name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY pa.company_id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 统计征收记录数 -->
+    <select id="countByYearWithFilter" resultType="int">
+        SELECT COUNT(1) FROM payable_amount pa
+        LEFT JOIN company c ON pa.company_id = c.id
+        <where>
+            pa.year = #{year}
+            <if test="status != null and status != ''">
+                AND pa.payment_status = 
+                <choose>
+                    <when test="status == 'UNPAID'">0</when>
+                    <when test="status == 'PARTIAL'">1</when>
+                    <when test="status == 'PAID'">2</when>
+                </choose>
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND c.name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+    </select>
+
+</mapper>
