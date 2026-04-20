@@ -179,15 +179,49 @@ public class SysUserServiceImpl implements SysUserService {
                 List<String> row = list.get(i);
                 if (row.size() < 4) {
                     failCount++;
+                    Map<String, Object> error = new HashMap<>();
+                    error.put("row", i + 2);
+                    error.put("username", row.size() > 0 ? row.get(0) : "");
+                    error.put("message", "列数不足，模板应为: username, realName, role, district");
+                    errors.add(error);
                     continue;
                 }
 
                 try {
+                    String username = row.get(0);
+                    String realName = row.get(1);
+                    String roleCode = row.get(2);
+                    String districtName = row.get(3);
+
+                    if (username == null || username.trim().isEmpty()) {
+                        throw new RuntimeException("用户名不能为空");
+                    }
+                    if (realName == null || realName.trim().isEmpty()) {
+                        throw new RuntimeException("姓名不能为空");
+                    }
+                    if (roleCode == null || roleCode.trim().isEmpty()) {
+                        throw new RuntimeException("角色编码不能为空");
+                    }
+
+                    SysUser existingUser = sysUserMapper.selectByUsername(username.trim());
+                    if (existingUser != null) {
+                        throw new RuntimeException("用户名已存在");
+                    }
+
                     SysUser user = new SysUser();
-                    user.setUsername(row.get(0));
-                    user.setPassword(PasswordUtil.encrypt(row.get(1)));
-                    user.setRealName(row.get(2));
-                    user.setUserType(Integer.parseInt(row.get(3)));
+                    user.setUsername(username.trim());
+                    user.setPassword(PasswordUtil.encrypt("123456"));
+                    user.setRealName(realName.trim());
+                    convertRoleToUserType(roleCode, user);
+
+                    if (districtName != null && !districtName.trim().isEmpty()) {
+                        Region region = regionMapper.selectByName(districtName.trim());
+                        if (region == null) {
+                            throw new RuntimeException("地区不存在: " + districtName);
+                        }
+                        user.setRegionId(region.getId());
+                    }
+
                     user.setStatus(1);
                     user.setCreateTime(DateUtil.now());
                     user.setUpdateTime(DateUtil.now());
@@ -242,6 +276,10 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     private String convertToRoleCode(SysUser user) {
+        if (user.getUserType() != null && user.getUserType() == 3) {
+            return "UNIT";
+        }
+
         if (user.getUserType() != null && user.getUserType() == 2) {
             if (user.getAdminLevel() != null) {
                 switch (user.getAdminLevel()) {
@@ -272,6 +310,7 @@ public class SysUserServiceImpl implements SysUserService {
             case "DISTRICT_ADMIN": return "区级管理员";
             case "CITY_LEADER": return "市级领导";
             case "DISTRICT_LEADER": return "区级领导";
+            case "UNIT": return "单位负责人";
             default: return "未知角色";
         }
     }
@@ -299,7 +338,7 @@ public class SysUserServiceImpl implements SysUserService {
                 user.setAdminLevel(3);
                 break;
             case "UNIT":
-                user.setUserType(1);
+                user.setUserType(3);
                 user.setAdminLevel(null);
                 break;
             default:

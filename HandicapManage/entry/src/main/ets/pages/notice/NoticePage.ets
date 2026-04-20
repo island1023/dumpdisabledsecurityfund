@@ -31,7 +31,7 @@ export struct NoticePage {
   @State noticeList: NoticeItem[] = [
     {
       id: '1',
-      companyName: '广州科技发展有限公司',
+      companyName: '成都科技发展有限公司',
       noticeType: '缴款通知书',
       year: '2025年',
       amount: 180000,

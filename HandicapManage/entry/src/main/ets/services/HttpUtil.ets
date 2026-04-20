@@ -202,3 +202,52 @@ export function del<T = Record<string, Object>>(url: string): Promise<ApiRespons
     method: 'DELETE'
   });
 }
+
+/**
+ * 文件上传（multipart/form-data）
+ */
+export async function uploadFile<T = Record<string, Object>>(
+  url: string,
+  filePath: string,
+  formFieldName: string = 'file',
+  fileName: string = 'import.xlsx'
+): Promise<ApiResponse<T>> {
+  const httpRequest = http.createHttp();
+
+  try {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const fullUrl = buildUrl(url);
+    
+    const requestOptions: http.HttpRequestOptions = {
+      method: http.RequestMethod.POST,
+      header: headers,
+      expectDataType: http.HttpDataType.STRING,
+      connectTimeout: 30000,
+      readTimeout: 30000,
+      multiFormDataList: [
+        {
+          name: formFieldName,
+          contentType: 'application/octet-stream',
+          remoteFileName: fileName,
+          filePath: filePath
+        }
+      ]
+    };
+
+    const response = await httpRequest.request(fullUrl, requestOptions);
+    if (response.responseCode === 200) {
+      return JSON.parse(response.result as string) as ApiResponse<T>;
+    }
+    throw new Error(`HTTP错误: ${response.responseCode}`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`文件上传失败: ${errorMessage}`);
+  } finally {
+    httpRequest.destroy();
+  }
+}

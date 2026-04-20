@@ -15,7 +15,7 @@ export class MockCollectionService {
  {
  id: '1',
  unitId: '1',
- unitName: '广州科技发展有限公司',
+ unitName: '成都科技发展有限公司',
  year:2024,
  employeeCount:150,
  disabledEmployeeCount:3,
@@ -90,7 +90,7 @@ export class MockCollectionService {
  {
  id: '6',
  unitId: '1',
- unitName: '广州科技发展有限公司',
+ unitName: '成都科技发展有限公司',
  year:2023,
  employeeCount:140,
  disabledEmployeeCount:2,
@@ -110,7 +110,7 @@ export class MockCollectionService {
  id: '1',
  collectionId: '1',
  unitId: '1',
- unitName: '广州科技发展有限公司',
+ unitName: '成都科技发展有限公司',
  amount:60000,
  paymentTime: '2025-03-1514:30:00',
  paymentMethod: 'TAX',

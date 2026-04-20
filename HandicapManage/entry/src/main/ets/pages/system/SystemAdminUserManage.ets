@@ -1,6 +1,8 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
 import { SystemUserService } from '../../services/SystemUserService';
 import { User } from '../../models/UserModel';
+import { promptAction } from '@kit.ArkUI';
+import { picker } from '@kit.CoreFileKit';
 
 @Component
 export struct SystemAdminUserManage {
@@ -18,7 +20,11 @@ export struct SystemAdminUserManage {
   @State showDistrictDropdown: boolean = false;
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
+<<<<<<< Updated upstream
   @State debugInfo: string = ''; // 调试信息
+=======
+  @State editingUserId: string = '';
+>>>>>>> Stashed changes
 
   private roleOptions: string[] = [
     'SYSTEM_ADMIN', 'CITY_ADMIN', 'DISTRICT_ADMIN',
@@ -26,8 +32,8 @@ export struct SystemAdminUserManage {
   ];
 
   private districtOptions: string[] = [
-    '越秀区', '海珠区', '荔湾区', '天河区', '白云区',
-    '黄埔区', '番禺区', '花都区', '南沙区', '从化区', '增城区'
+    '锦江区', '青羊区', '金牛区', '武侯区', '成华区',
+    '龙泉驿区', '青白江区', '新都区', '温江区', '双流区', '郫都区'
   ];
 
   aboutToAppear() {
@@ -167,7 +173,7 @@ export struct SystemAdminUserManage {
     .width('100%')
     .height('100%')
     .bindSheet($$this.showAddDialog, this.sheetBuilder(), {
-      detents: [SheetSize.LARGE],
+      detents: this.activeSheet === 'password' ? [SheetSize.MEDIUM] : [SheetSize.LARGE],
       preferType: SheetType.BOTTOM,
       showClose: true,
       onDisappear: () => {
@@ -221,13 +227,6 @@ export struct SystemAdminUserManage {
             .fontColor(this.getRoleColor(user.role))
             .margin({ top: 2 })
 
-          Text(user.status === 'ACTIVE' ? '启用' : '禁用')
-            .fontSize(12)
-            .fontColor(user.status === 'ACTIVE' ? ColorConstants.SUCCESS : ColorConstants.WARNING)
-            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-            .backgroundColor(user.status === 'ACTIVE' ? 'rgba(40, 167, 69, 0.1)' : 'rgba(255, 193, 7, 0.1)')
-            .borderRadius(12)
-            .margin({ top: 8 })
         }
         .alignItems(HorizontalAlign.Start)
         .margin({ left: 12 })
@@ -265,7 +264,20 @@ export struct SystemAdminUserManage {
       .margin({ top: 12 })
 
       Row() {
+<<<<<<< Updated upstream
         Blank().layoutWeight(1)
+=======
+        Button('编辑')
+          .width(62)
+          .height(32)
+          .fontSize(12)
+          .fontColor(ColorConstants.PRIMARY)
+          .backgroundColor('rgba(199, 28, 34, 0.08)')
+          .borderRadius(16)
+          .onClick((): void => {
+            this.handleEditUser(user);
+          })
+>>>>>>> Stashed changes
 
         Button('重置密码')
           .width(80)
@@ -274,22 +286,8 @@ export struct SystemAdminUserManage {
           .fontColor(ColorConstants.SUCCESS)
           .backgroundColor('rgba(0, 158, 95, 0.1)')
           .borderRadius(16)
-          .margin({ right: 8 })
           .onClick((): void => {
             this.handleResetPassword(user.id);
-          })
-
-        Button(user.status === 'ACTIVE' ? '禁用' : '启用')
-          .width(70)
-          .height(32)
-          .fontSize(12)
-          .fontColor(user.status === 'ACTIVE' ? ColorConstants.WARNING : ColorConstants.SUCCESS)
-          .backgroundColor(ColorConstants.BG_PAGE)
-          .border({ width: 1, color: ColorConstants.BORDER })
-          .borderRadius(16)
-          .margin({ right: 8 })
-          .onClick((): void => {
-            this.handleToggleStatus(user.id, user.status);
           })
 
         Button('删除')
@@ -317,7 +315,7 @@ export struct SystemAdminUserManage {
   @Builder
   buildAddDialog(): void {
     Column() {
-      Text('新增用户')
+      Text(this.editingUserId ? '编辑用户' : '新增用户')
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor(ColorConstants.TEXT_TITLE)
@@ -387,7 +385,7 @@ export struct SystemAdminUserManage {
                         this.formDistrict = '';
                         this.showDistrictDropdown = true;
                       } else if (['CITY_ADMIN', 'CITY_LEADER'].includes(roleCode)) {
-                        this.formDistrict = '广州市';
+                        this.formDistrict = '成都市';
                         this.showDistrictDropdown = false;
                       } else {
                         this.formDistrict = '';
@@ -477,8 +475,8 @@ export struct SystemAdminUserManage {
             .backgroundColor('rgba(199, 28, 34, 0.1)')
             .borderRadius(8)
             .margin({ bottom: 16 })
-            .onClick((): void => {
-              console.log('Excel导入功能待实现');
+            .onClick(async (): Promise<void> => {
+              await this.handleImportExcel();
             })
         }
         .width('100%')
@@ -617,16 +615,6 @@ export struct SystemAdminUserManage {
     return colorMap[role] || ColorConstants.TEXT_TITLE;
   }
 
-  private async handleToggleStatus(userId: string, currentStatus: string) {
-    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    try {
-      await SystemUserService.toggleStatus(userId, newStatus);
-      this.loadUserList();
-    } catch (error) {
-      console.error('切换状态失败:', error);
-    }
-  }
-
   private async handleResetPassword(userId: string) {
     try {
       // 调用后端接口重置密码
@@ -702,8 +690,13 @@ export struct SystemAdminUserManage {
     this.debugInfo += '✅ 验证通过，准备调用接口\n';
 
     try {
+<<<<<<< Updated upstream
       this.debugInfo += '📡 调用新增用户接口...\n';
       // 构建请求参数 - 使用Partial<User>类型
+=======
+      const isEditMode = !!this.editingUserId;
+      // 构建请求参数
+>>>>>>> Stashed changes
       const userData: Partial<User> = {
         username: this.formUsername,
         realName: this.formRealName,
@@ -711,7 +704,15 @@ export struct SystemAdminUserManage {
         districtName: this.formDistrict || undefined
       };
       
+<<<<<<< Updated upstream
       this.debugInfo += '📤 请求参数: ' + JSON.stringify(userData) + '\n';
+=======
+      if (this.editingUserId) {
+        await SystemUserService.updateUser(this.editingUserId, userData);
+      } else {
+        await SystemUserService.addUser(userData);
+      }
+>>>>>>> Stashed changes
       
       // 添加调试：显示即将调用的Service
       console.log('🔍 准备调用 SystemUserService.addUser');
@@ -749,7 +750,7 @@ export struct SystemAdminUserManage {
       this.debugInfo += '💬 显示成功提示\n';
       AlertDialog.show({
         title: '成功',
-        message: '用户新增成功',
+        message: isEditMode ? '用户更新成功' : '用户新增成功',
         primaryButton: { 
           value: '确定',
           action: () => {
@@ -770,4 +771,61 @@ export struct SystemAdminUserManage {
       });
     }
   }
+<<<<<<< Updated upstream
+=======
+
+  private resetAddForm(): void {
+    this.editingUserId = '';
+    this.formUsername = '';
+    this.formRealName = '';
+    this.formRole = '';
+    this.formDistrict = '';
+    this.showRoleDropdown = false;
+    this.showDistrictDropdown = false;
+  }
+
+  private handleEditUser(user: User): void {
+    this.editingUserId = user.id;
+    this.formUsername = user.username;
+    this.formRealName = user.realName;
+    this.formRole = user.role;
+    this.formDistrict = user.districtName || '';
+    this.showRoleDropdown = false;
+    this.showDistrictDropdown = false;
+    this.activeSheet = 'add';
+    this.showAddDialog = true;
+  }
+
+  private async handleImportExcel(): Promise<void> {
+    try {
+      const documentPicker = new picker.DocumentViewPicker();
+      const options = new picker.DocumentSelectOptions();
+      options.maxSelectNumber = 1;
+      options.fileSuffixFilters = ['.xlsx', '.xls'];
+
+      const selectedUris: Array<string> = await documentPicker.select(options);
+      if (!selectedUris || selectedUris.length === 0) {
+        return;
+      }
+
+      const fileUri = selectedUris[0];
+      const fileName = fileUri.substring(fileUri.lastIndexOf('/') + 1) || 'import.xlsx';
+
+      const result = await SystemUserService.importUsersByExcel(fileUri, fileName);
+      await this.loadUserList();
+      promptAction.showToast({
+        message: `导入完成：成功${result.successCount}条，失败${result.failCount}条`
+      });
+    } catch (error) {
+      AlertDialog.show({
+        title: '导入失败',
+        message: error instanceof Error ? error.message : 'Excel导入失败，请重试',
+        primaryButton: {
+          value: '确定',
+          action: () => {}
+        }
+      });
+    }
+  }
+>>>>>>> Stashed changes
 }

@@ -288,7 +288,7 @@ export struct HomePage {
  Column() {
  Row() {
  Column() {
- Text('广州科技发展有限公司')
+        Text('成都科技发展有限公司')
  .fontSize(14)
  .fontColor(ColorConstants.TEXT_TITLE)
  .fontWeight(FontWeight.Medium)

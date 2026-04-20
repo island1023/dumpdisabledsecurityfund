@@ -53,68 +53,68 @@ export struct LeaderArchivePage {
   @State unitList: UnitBasicInfo[] = [
     {
       id: '1',
-      companyName: '广州科技发展有限公司',
+      companyName: '成都科技发展有限公司',
       creditCode: '91440101MA5ABCD123',
       legalPerson: '张三',
-      registerAddress: '广州市天河区珠江新城XX路XX号',
+      registerAddress: '成都市锦江区春熙路XX号',
       establishDate: '2018-05-15',
       phone: '020-12345678',
       employeeCount: 150,
       disabledCount: 3,
       collectionYear: '2025年',
-      district: '天河区'
+      district: '锦江区'
     },
     {
       id: '2',
       companyName: '珠江商贸集团',
       creditCode: '91440101MA5EFGH456',
       legalPerson: '李四',
-      registerAddress: '广州市越秀区中山路XX号',
+      registerAddress: '成都市青羊区顺城大街XX号',
       establishDate: '2015-03-20',
       phone: '020-87654321',
       employeeCount: 200,
       disabledCount: 5,
       collectionYear: '2025年',
-      district: '越秀区'
+      district: '青羊区'
     },
     {
       id: '3',
       companyName: '白云制造有限公司',
       creditCode: '91440101MA5IJKL789',
       legalPerson: '王五',
-      registerAddress: '广州市白云区机场路XX号',
+      registerAddress: '成都市金牛区一环路XX号',
       establishDate: '2010-08-10',
       phone: '020-11223344',
       employeeCount: 300,
       disabledCount: 7,
       collectionYear: '2025年',
-      district: '白云区'
+      district: '金牛区'
     },
     {
       id: '4',
       companyName: '天河建设集团',
       creditCode: '91440101MA5MNOP012',
       legalPerson: '赵六',
-      registerAddress: '广州市天河区天河北路XX号',
+      registerAddress: '成都市锦江区东大街XX号',
       establishDate: '2008-12-01',
       phone: '020-55667788',
       employeeCount: 400,
       disabledCount: 6,
       collectionYear: '2025年',
-      district: '天河区'
+      district: '锦江区'
     },
     {
       id: '5',
       companyName: '黄埔实业有限公司',
       creditCode: '91440101MA5QRST345',
       legalPerson: '孙七',
-      registerAddress: '广州市黄埔区科学城XX路XX号',
+      registerAddress: '成都市武侯区人民南路XX号',
       establishDate: '2012-07-20',
       phone: '020-33445566',
       employeeCount: 250,
       disabledCount: 4,
       collectionYear: '2025年',
-      district: '黄埔区'
+      district: '武侯区'
     }
   ];
 

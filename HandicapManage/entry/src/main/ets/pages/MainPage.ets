@@ -42,17 +42,17 @@ struct MainPage {
 
   // 区列表（模拟数据）
   private districtList: DistrictItem[] = [
-    { code: '440103', name: '荔湾区' },
-    { code: '440104', name: '越秀区' },
-    { code: '440105', name: '海珠区' },
-    { code: '440106', name: '天河区' },
-    { code: '440111', name: '白云区' },
-    { code: '440112', name: '黄埔区' },
-    { code: '440113', name: '番禺区' },
-    { code: '440114', name: '花都区' },
-    { code: '440115', name: '南沙区' },
-    { code: '440117', name: '从化区' },
-    { code: '440118', name: '增城区' }
+    { code: '510104', name: '锦江区' },
+    { code: '510105', name: '青羊区' },
+    { code: '510106', name: '金牛区' },
+    { code: '510107', name: '武侯区' },
+    { code: '510108', name: '成华区' },
+    { code: '510112', name: '龙泉驿区' },
+    { code: '510113', name: '青白江区' },
+    { code: '510114', name: '新都区' },
+    { code: '510115', name: '温江区' },
+    { code: '510116', name: '双流区' },
+    { code: '510117', name: '郫都区' }
   ];
 
   // Tab配置

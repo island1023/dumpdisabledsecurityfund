@@ -87,13 +87,10 @@ struct LoginPage {
  async loadCaptcha() {
  try {
  this.captchaLoading = true;
- this.debugInfo = '请求中...';
  const response = await AuthService.getCaptcha();
- this.debugInfo = '获取成功';
  this.captchaKey = response.captchaKey;
  this.captchaImage = response.captchaImage;
  this.captcha = '';
- this.debugInfo = `图片长度: ${response.captchaImage ? response.captchaImage.length : 0}`;
  } catch (error) {
  this.errorMessage = '获取验证码失败';
  this.captchaImage = '';
@@ -393,26 +390,6 @@ struct LoginPage {
  .backgroundColor(ColorConstants.BG_CARD)
  .borderRadius(24)
  .layoutWeight(1)
-
- // 底部信息
- Column() {
- Text('测试账号提示')
- .fontSize(12)
- .fontColor(ColorConstants.TEXT_SECONDARY)
- .margin({ bottom:8 })
-
- Text('系统管理员: admin | 市级领导: city_leader')
- .fontSize(11)
- .fontColor(ColorConstants.TEXT_SECONDARY)
-
- Text('密码均为:123456')
- .fontSize(11)
- .fontColor(ColorConstants.TEXT_SECONDARY)
- .margin({ top:4 })
- }
- .width('100%')
- .padding({ bottom:24 })
- .backgroundColor(ColorConstants.BG_CARD)
  }
  .width('100%')
  .height('100%')

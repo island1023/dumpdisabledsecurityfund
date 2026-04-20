@@ -73,25 +73,25 @@ export struct LeaderReportPage {
 
   // 模拟数据
   @State unitStats: UnitStatItem[] = [
-    { district: '天河区', unitCount: 150, totalEmployees: 15000, disabledEmployees: 300 },
-    { district: '越秀区', unitCount: 120, totalEmployees: 12000, disabledEmployees: 250 },
-    { district: '白云区', unitCount: 100, totalEmployees: 10000, disabledEmployees: 200 },
-    { district: '黄埔区', unitCount: 80, totalEmployees: 8000, disabledEmployees: 150 },
-    { district: '海珠区', unitCount: 90, totalEmployees: 9000, disabledEmployees: 180 }
+    { district: '锦江区', unitCount: 150, totalEmployees: 15000, disabledEmployees: 300 },
+    { district: '青羊区', unitCount: 120, totalEmployees: 12000, disabledEmployees: 250 },
+    { district: '金牛区', unitCount: 100, totalEmployees: 10000, disabledEmployees: 200 },
+    { district: '武侯区', unitCount: 80, totalEmployees: 8000, disabledEmployees: 150 },
+    { district: '成华区', unitCount: 90, totalEmployees: 9000, disabledEmployees: 180 }
   ];
 
   @State unpaidUnits: UnpaidUnitItem[] = [
-    { companyName: '珠江商贸集团', district: '越秀区', year: '2025年', payableAmount: 150000, unpaidMonths: 3 },
-    { companyName: '越秀金融服务', district: '越秀区', year: '2025年', payableAmount: 90000, unpaidMonths: 2 },
-    { companyName: '白云制造有限公司', district: '白云区', year: '2025年', payableAmount: 210000, unpaidMonths: 1 }
+    { companyName: '锦江商贸集团', district: '青羊区', year: '2025年', payableAmount: 150000, unpaidMonths: 3 },
+    { companyName: '青羊金融服务', district: '青羊区', year: '2025年', payableAmount: 90000, unpaidMonths: 2 },
+    { companyName: '金牛制造有限公司', district: '金牛区', year: '2025年', payableAmount: 210000, unpaidMonths: 1 }
   ];
 
   @State paymentStats: PaymentStatItem[] = [
-    { district: '天河区', totalPayable: 1800000, totalPaid: 1750000, paymentRate: 97.2 },
-    { district: '越秀区', totalPayable: 1500000, totalPaid: 1450000, paymentRate: 96.7 },
-    { district: '白云区', totalPayable: 1200000, totalPaid: 1150000, paymentRate: 95.8 },
-    { district: '黄埔区', totalPayable: 950000, totalPaid: 900000, paymentRate: 94.7 },
-    { district: '海珠区', totalPayable: 1100000, totalPaid: 1050000, paymentRate: 95.5 }
+    { district: '锦江区', totalPayable: 1800000, totalPaid: 1750000, paymentRate: 97.2 },
+    { district: '青羊区', totalPayable: 1500000, totalPaid: 1450000, paymentRate: 96.7 },
+    { district: '金牛区', totalPayable: 1200000, totalPaid: 1150000, paymentRate: 95.8 },
+    { district: '武侯区', totalPayable: 950000, totalPaid: 900000, paymentRate: 94.7 },
+    { district: '成华区', totalPayable: 1100000, totalPaid: 1050000, paymentRate: 95.5 }
   ];
 
   @State reliefStats: ReliefStatItem[] = [
