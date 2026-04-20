@@ -49,13 +49,13 @@ export interface PageResponse<T> {
   list: T[];
 }
 
-export interface AddEmployeeData {
+export class AddEmployeeData {
   name?: string;
   idCard?: string;
   hireDate?: string;
 }
 
-export interface AddDisabledEmployeeData {
+export class AddDisabledEmployeeData {
   employeeIds?: string[];
   disabilityType?: string;
   disabilityLevel?: string;
@@ -146,7 +146,7 @@ export class UnitService {
    * 新增普通职工
    */
   static async addEmployee(data: AddEmployeeData): Promise<AddEmployeeResponse> {
-    const response = await post<AddEmployeeResponse>('/unit/employees', data as Record<string, Object>);
+    const response = await post<AddEmployeeResponse>('/unit/employees', data);
     
     if (response.code === 200) {
       return response.data;
@@ -159,7 +159,7 @@ export class UnitService {
    * 新增残疾职工
    */
   static async addDisabledEmployees(data: AddDisabledEmployeeData): Promise<boolean> {
-    const response = await post('/unit/disabled-employees', data as Record<string, Object>);
+    const response = await post('/unit/disabled-employees', data);
     return response.code === 200;
   }
 }

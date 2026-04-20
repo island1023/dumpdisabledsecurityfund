@@ -3,7 +3,7 @@ import { http } from '@kit.NetworkKit';
 /**
  * API响应结构
  */
-export interface ApiResponse<T = Record<string, Object>> {
+export interface ApiResponse<T = Object> {
   code: number;
   message: string;
   data: T;
@@ -16,7 +16,7 @@ interface HttpRequestConfig {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   params?: Record<string, string | number | boolean>;
-  data?: Record<string, Object>;
+  data?: Object;
   header?: Record<string, string>;
 }
 
@@ -31,8 +31,8 @@ interface HttpRequestConfig {
  * - 如果使用模拟器：使用 10.0.2.2
  * - 如果使用真机：使用电脑的局域网IP
  */
-const BASE_URL = 'http://10.0.2.2:8080'; // 模拟器访问宿主机
-// const BASE_URL = 'http://localhost:8080'; // 预览器调试用
+// const BASE_URL = 'http://10.0.2.2:8080'; // 模拟器访问宿主机
+const BASE_URL = 'http://localhost:8080'; // 预览器调试用
 
 /**
  * 获取Token
@@ -44,6 +44,10 @@ function getToken(): string {
   } catch (e) {
     return '';
   }
+}
+
+function shouldAttachToken(url: string): boolean {
+  return !(url === '/auth/login' || url === '/auth/captcha');
 }
 
 /**
@@ -79,7 +83,7 @@ function buildUrl(url: string, params?: Record<string, string | number | boolean
 /**
  * 发送HTTP请求
  */
-export async function request<T = Record<string, Object>>(config: HttpRequestConfig): Promise<ApiResponse<T>> {
+export async function request<T = Object>(config: HttpRequestConfig): Promise<ApiResponse<T>> {
   const url = config.url;
   const method = config.method;
   const params = config.params;
@@ -109,7 +113,7 @@ export async function request<T = Record<string, Object>>(config: HttpRequestCon
       headers[key] = header[key];
     }
     
-    if (token) {
+    if (token && shouldAttachToken(url)) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     
@@ -133,8 +137,17 @@ export async function request<T = Record<string, Object>>(config: HttpRequestCon
     console.log('HTTP响应码:', response.responseCode);
     console.log('HTTP响应内容:', response.result);
     
-    if (response.responseCode === 200) {
-      const result: ApiResponse<T> = JSON.parse(response.result as string);
+    if (response.responseCode >= 200 && response.responseCode < 300) {
+      const rawResult = response.result as string;
+      if (!rawResult || rawResult.trim().length === 0) {
+        console.warn(`HTTP成功但响应体为空，使用默认成功响应: ${response.responseCode}`);
+        const fallbackJson = `{"code":${response.responseCode},"message":"","data":{}}`;
+        const fallbackResult: ApiResponse<T> = JSON.parse(fallbackJson);
+        console.log('=== HttpUtil.request 成功(空响应兜底) ===');
+        return fallbackResult;
+      }
+
+      const result: ApiResponse<T> = JSON.parse(rawResult);
       
       if (result.code === 401) {
         console.error('Token过期，请重新登录');
@@ -161,7 +174,9 @@ export async function request<T = Record<string, Object>>(config: HttpRequestCon
 /**
  * GET请求
  */
-export function get<T = Record<string, Object>>(url: string, params?: Record<string, string | number | boolean>): Promise<ApiResponse<T>> {
+export function get(url: string, params?: Record<string, string | number | boolean>): Promise<ApiResponse<Object>>;
+export function get<T>(url: string, params?: Record<string, string | number | boolean>): Promise<ApiResponse<T>>;
+export function get<T = Object>(url: string, params?: Record<string, string | number | boolean>): Promise<ApiResponse<T>> {
   return request<T>({
     url,
     method: 'GET',
@@ -172,7 +187,9 @@ export function get<T = Record<string, Object>>(url: string, params?: Record<str
 /**
  * POST请求
  */
-export function post<T = Record<string, Object>>(url: string, data?: Record<string, Object>): Promise<ApiResponse<T>> {
+export function post(url: string, data?: Object): Promise<ApiResponse<Object>>;
+export function post<T>(url: string, data?: Object): Promise<ApiResponse<T>>;
+export function post<T = Object>(url: string, data?: Object): Promise<ApiResponse<T>> {
   console.log('POST request to:', url, 'with data:', JSON.stringify(data));
   return request<T>({
     url,
@@ -184,7 +201,9 @@ export function post<T = Record<string, Object>>(url: string, data?: Record<stri
 /**
  * PUT请求
  */
-export function put<T = Record<string, Object>>(url: string, data?: Record<string, Object>, params?: Record<string, string | number | boolean>): Promise<ApiResponse<T>> {
+export function put(url: string, data?: Object, params?: Record<string, string | number | boolean>): Promise<ApiResponse<Object>>;
+export function put<T>(url: string, data?: Object, params?: Record<string, string | number | boolean>): Promise<ApiResponse<T>>;
+export function put<T = Object>(url: string, data?: Object, params?: Record<string, string | number | boolean>): Promise<ApiResponse<T>> {
   return request<T>({
     url,
     method: 'PUT',
@@ -196,7 +215,9 @@ export function put<T = Record<string, Object>>(url: string, data?: Record<strin
 /**
  * DELETE请求
  */
-export function del<T = Record<string, Object>>(url: string): Promise<ApiResponse<T>> {
+export function del(url: string): Promise<ApiResponse<Object>>;
+export function del<T>(url: string): Promise<ApiResponse<T>>;
+export function del<T = Object>(url: string): Promise<ApiResponse<T>> {
   return request<T>({
     url,
     method: 'DELETE'
@@ -206,7 +227,7 @@ export function del<T = Record<string, Object>>(url: string): Promise<ApiRespons
 /**
  * 文件上传（multipart/form-data）
  */
-export async function uploadFile<T = Record<string, Object>>(
+export async function uploadFile<T = Object>(
   url: string,
   filePath: string,
   formFieldName: string = 'file',

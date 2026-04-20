@@ -7,6 +7,13 @@ import {
   CollectionStatistics
 } from '../models/CollectionModel';
 
+class VerifyPaymentRequestData {
+  collectionId: string = '';
+  amount: number = 0;
+  voucherNo?: string;
+  remark?: string;
+}
+
 /**
  * 征收核算服务
  */
@@ -66,16 +73,16 @@ export class CollectionService {
    * 缴款核销
    */
   static async verifyPayment(collectionId: string, amount: number, voucherNo: string, remark?: string): Promise<boolean> {
-    const requestData: Record<string, Object> = {};
-    requestData.collectionId = collectionId as Object;
-    requestData.amount = amount as Object;
+    const requestData = new VerifyPaymentRequestData();
+    requestData.collectionId = collectionId;
+    requestData.amount = amount;
 
     if (voucherNo) {
-      requestData.voucherNo = voucherNo as Object;
+      requestData.voucherNo = voucherNo;
     }
 
     if (remark) {
-      requestData.remark = remark as Object;
+      requestData.remark = remark;
     }
 
     const response = await post('/collection/verify', requestData);

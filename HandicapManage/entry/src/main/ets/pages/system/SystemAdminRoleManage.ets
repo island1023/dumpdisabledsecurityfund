@@ -35,7 +35,7 @@ export struct SystemAdminRoleManage {
       AlertDialog.show({
         title: '错误',
         message: '加载角色列表失败，请检查网络连接',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -265,8 +265,8 @@ export struct SystemAdminRoleManage {
       return this.roleList;
     }
     return this.roleList.filter(role =>
-      role.roleName.includes(this.searchKeyword) ||
-      role.roleCode.includes(this.searchKeyword)
+    role.roleName.includes(this.searchKeyword) ||
+    role.roleCode.includes(this.searchKeyword)
     );
   }
 
@@ -279,7 +279,7 @@ export struct SystemAdminRoleManage {
       AlertDialog.show({
         title: '成功',
         message: newStatus === 1 ? '角色已启用' : '角色已禁用',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -289,7 +289,7 @@ export struct SystemAdminRoleManage {
       AlertDialog.show({
         title: '错误',
         message: '操作失败，请重试',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -323,7 +323,7 @@ export struct SystemAdminRoleManage {
             AlertDialog.show({
               title: '提示',
               message: '删除功能暂未实现',
-              primaryButton: { 
+              primaryButton: {
                 value: '确定',
                 action: () => {}
               }
@@ -341,7 +341,7 @@ export struct SystemAdminRoleManage {
       AlertDialog.show({
         title: '提示',
         message: '请填写角色名称和角色代码',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -360,7 +360,7 @@ export struct SystemAdminRoleManage {
         AlertDialog.show({
           title: '成功',
           message: '角色新增成功',
-          primaryButton: { 
+          primaryButton: {
             value: '确定',
             action: () => {}
           }
@@ -377,7 +377,7 @@ export struct SystemAdminRoleManage {
         AlertDialog.show({
           title: '成功',
           message: '角色更新成功',
-          primaryButton: { 
+          primaryButton: {
             value: '确定',
             action: () => {}
           }
@@ -390,7 +390,7 @@ export struct SystemAdminRoleManage {
       AlertDialog.show({
         title: '错误',
         message: isAdd ? '角色新增失败，请重试' : '角色更新失败，请重试',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }

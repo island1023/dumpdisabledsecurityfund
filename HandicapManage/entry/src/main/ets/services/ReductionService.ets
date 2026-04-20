@@ -59,6 +59,14 @@ export interface ApplicationSubmitResponse {
   applicationId: string;
 }
 
+class ApplicationSubmitRequestData {
+  type?: string;
+  year?: string;
+  amount?: string;
+  reason?: string;
+  attachment?: string;
+}
+
 /**
  * 减免申请服务
  */
@@ -67,21 +75,21 @@ export class ReductionService {
    * 提交减免缓申请
    */
   static async submitApplication(data: ApplicationSubmitData): Promise<ApplicationSubmitResponse> {
-    const requestData: Record<string, Object> = {};
+    const requestData = new ApplicationSubmitRequestData();
     if (data.type) {
-      requestData.type = data.type as Object;
+      requestData.type = data.type;
     }
     if (data.year) {
-      requestData.year = data.year as Object;
+      requestData.year = data.year;
     }
     if (data.amount) {
-      requestData.amount = data.amount as Object;
+      requestData.amount = data.amount;
     }
     if (data.reason) {
-      requestData.reason = data.reason as Object;
+      requestData.reason = data.reason;
     }
     if (data.attachment) {
-      requestData.attachment = data.attachment as Object;
+      requestData.attachment = data.attachment;
     }
     const response = await post<ApplicationSubmitResponse>('/unit/applications', requestData);
     

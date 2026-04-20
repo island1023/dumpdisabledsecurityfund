@@ -1,6 +1,8 @@
 import { ColorConstants } from '../common/constants/ColorConstants';
 import { appViewModel } from '../viewmodel/AppViewModel';
 import { router } from '@kit.ArkUI';
+import { AuthService } from '../services/AuthService';
+import { promptAction } from '@kit.ArkUI';
 import { HeaderBar, DistrictItem } from '../common/components/NavigationComponents';
 import { HomePage } from './home/HomePage';
 import { SystemManagePage } from './system/SystemManagePage';
@@ -39,6 +41,12 @@ struct MainPage {
   @State isSheetShow: boolean = false;
   @State activeSheet: CustomSheetType = CustomSheetType.NONE;
   @State selectedDistrict: string = 'all'; // 当前选中的区，'all'表示全市
+  @State profileUsername: string = '';
+  @State profileOldPassword: string = '';
+  @State profilePassword: string = '';
+  @State profileConfirmPassword: string = '';
+  @State profileSaving: boolean = false;
+  @State profileError: string = '';
 
   // 区列表（模拟数据）
   private districtList: DistrictItem[] = [
@@ -57,6 +65,13 @@ struct MainPage {
 
   // Tab配置
   private tabItems: TabItem[] = [
+    {
+      id: 'unit',
+      name: '单位主页',
+      icon: 'house',
+      activeIcon: 'house.fill',
+      roles: ['UNIT']
+    },
     { 
       id: 'system', 
       name: '系统管理', 
@@ -108,6 +123,16 @@ struct MainPage {
     }
   ];
 
+  private isUnitAccount(): boolean {
+    const user = appViewModel.currentUser;
+    if (!user) {
+      return false;
+    }
+    const role = (user.role || '').trim().toLowerCase();
+    const username = (user.username || '').trim().toLowerCase();
+    return role === 'unit' || role === 'company' || role.includes('unit') || role.includes('company') || username.startsWith('unit');
+  }
+
   aboutToAppear() {
     if (!appViewModel.isLoggedIn) {
       router.replaceUrl({ url: 'pages/LoginPage' });
@@ -115,7 +140,9 @@ struct MainPage {
     }
     // 系统管理员直接进入系统管理页面
     const userRole = appViewModel.currentUser?.role || '';
-    if (userRole === 'SYSTEM_ADMIN') {
+    if (this.isUnitAccount()) {
+      this.currentMenu = 'unit';
+    } else if (userRole === 'SYSTEM_ADMIN') {
       this.currentMenu = 'system';
     } else if (userRole === 'DISTRICT_ADMIN' || userRole === 'CITY_ADMIN') {
       // 市/区级管理员直接进入待审批页面
@@ -129,17 +156,22 @@ struct MainPage {
   }
 
   getVisibleTabs(): TabItem[] {
+    if (this.isUnitAccount()) {
+      return this.tabItems.filter(item => item.id === 'unit');
+    }
     const userRole = appViewModel.currentUser?.role || '';
     return this.tabItems.filter(item => item.roles.includes(userRole));
   }
 
   handleLogout() {
     appViewModel.logout();
+    AppStorage.setOrCreate('token', '');
     router.replaceUrl({ url: 'pages/LoginPage' });
   }
 
   getPageTitle(): string {
     const titles: Record<string, string> = {
+      'unit': '单位主页',
       'system': '系统管理',
       'approval': '待审批',
       'collection': '征收核算',
@@ -153,7 +185,11 @@ struct MainPage {
 
   @Builder
   buildPageContent() {
-    if (this.currentMenu === 'system') {
+    if (this.isUnitAccount()) {
+      UnitHomePage()
+    } else if (this.currentMenu === 'unit') {
+      UnitHomePage()
+    } else if (this.currentMenu === 'system') {
       SystemManagePage()
     } else if (this.currentMenu === 'approval') {
       ApprovalPendingPage()
@@ -180,6 +216,7 @@ struct MainPage {
   // 获取tab图标（未选中状态）
   private getTabIcon(tabId: string): Resource {
     switch (tabId) {
+      case 'unit': return $r('sys.symbol.house');
       case 'system': return $r('sys.symbol.gearshape');
       case 'approval': return $r('sys.symbol.doc_text');
       case 'collection': return $r('sys.symbol.calculator');
@@ -194,6 +231,7 @@ struct MainPage {
   // 获取tab激活图标
   private getTabActiveIcon(tabId: string): Resource {
     switch (tabId) {
+      case 'unit': return $r('sys.symbol.house_fill');
       case 'system': return $r('sys.symbol.gearshape_fill');
       case 'approval': return $r('sys.symbol.doc_text_fill');
       case 'collection': return $r('sys.symbol.calculator_fill');
@@ -224,6 +262,9 @@ struct MainPage {
 
   // 打开弹窗
   private openSheet(type: CustomSheetType) {
+    if (type === CustomSheetType.PROFILE) {
+      this.initProfileForm();
+    }
     this.activeSheet = type;
     this.isSheetShow = true;
   }
@@ -354,7 +395,7 @@ struct MainPage {
           .height(56)
           .padding({ left: 16, right: 16 })
           .onClick(() => {
-            this.activeSheet = CustomSheetType.PROFILE;
+            this.openSheet(CustomSheetType.PROFILE);
           })
         }
         ListItem() {
@@ -380,29 +421,137 @@ struct MainPage {
   @Builder
   buildProfileSheet() {
     Column() {
-      TextInput({ placeholder: '用户名', text: appViewModel.currentUser?.username || '' })
+      Text('用户名（不可修改）')
+        .fontSize(12)
+        .fontColor(ColorConstants.TEXT_SECONDARY)
+        .width('100%')
+        .margin({ bottom: 6 });
+
+      TextInput({ placeholder: '用户名', text: this.profileUsername })
+        .enabled(false)
         .margin({ bottom: 12 })
         .onChange((v: string) => {
-          if (appViewModel.currentUser) {
-            appViewModel.currentUser.username = v;
-          }
-        })
-      
-      TextInput({ placeholder: '新密码' })
+          this.profileUsername = v;
+          this.profileError = '';
+        });
+
+      Text('旧密码')
+        .fontSize(12)
+        .fontColor(ColorConstants.TEXT_SECONDARY)
+        .width('100%')
+        .margin({ bottom: 6 });
+
+      TextInput({ placeholder: '请输入旧密码', text: this.profileOldPassword })
         .type(InputType.Password)
         .margin({ bottom: 12 })
         .onChange((v: string) => {
-          if (appViewModel.currentUser) {
-            appViewModel.currentUser.password = v;
-          }
-        })
-      
-      Button('保存修改')
+          this.profileOldPassword = v;
+          this.profileError = '';
+        });
+
+      Text('新密码')
+        .fontSize(12)
+        .fontColor(ColorConstants.TEXT_SECONDARY)
         .width('100%')
+        .margin({ bottom: 6 });
+
+      TextInput({ placeholder: '请输入新密码', text: this.profilePassword })
+        .type(InputType.Password)
+        .margin({ bottom: 12 })
+        .onChange((v: string) => {
+          this.profilePassword = v;
+          this.profileError = '';
+        });
+
+      Text('确认新密码')
+        .fontSize(12)
+        .fontColor(ColorConstants.TEXT_SECONDARY)
+        .width('100%')
+        .margin({ bottom: 6 });
+
+      TextInput({ placeholder: '请再次输入新密码', text: this.profileConfirmPassword })
+        .type(InputType.Password)
+        .margin({ bottom: 12 })
+        .onChange((v: string) => {
+          this.profileConfirmPassword = v;
+          this.profileError = '';
+        });
+
+      if (this.profileError) {
+        Text(this.profileError)
+          .fontSize(12)
+          .fontColor(ColorConstants.DANGER)
+          .margin({ bottom: 12 });
+      }
+
+      Button(this.profileSaving ? '保存中...' : '保存修改')
+        .width('100%')
+        .enabled(!this.profileSaving)
         .onClick(() => {
-          this.isSheetShow = false;
+          this.saveProfile();
         })
     }.padding(20)
+  }
+
+  private initProfileForm(): void {
+    this.profileUsername = appViewModel.currentUser?.username || '';
+    this.profileOldPassword = '';
+    this.profilePassword = '';
+    this.profileConfirmPassword = '';
+    this.profileSaving = false;
+    this.profileError = '';
+  }
+
+  private async saveProfile(): Promise<void> {
+    const user = appViewModel.currentUser;
+    if (!user) {
+      this.profileError = '用户未登录';
+      return;
+    }
+    if (!this.profileOldPassword.trim()) {
+      this.profileError = '请输入旧密码';
+      return;
+    }
+    if (!this.profilePassword.trim()) {
+      this.profileError = '请输入新密码';
+      return;
+    }
+    if (this.profilePassword.length < 6) {
+      this.profileError = '新密码长度不能少于6位';
+      return;
+    }
+    if (!this.profileConfirmPassword.trim()) {
+      this.profileError = '请确认新密码';
+      return;
+    }
+    if (this.profilePassword !== this.profileConfirmPassword) {
+      this.profileError = '两次输入的新密码不一致';
+      return;
+    }
+
+    this.profileSaving = true;
+    this.profileError = '';
+    try {
+      const accountType = user.role === 'UNIT' ? 'company' : 'sys';
+      const success = await AuthService.changePassword(
+        user.id,
+        accountType,
+        this.profileOldPassword,
+        this.profilePassword,
+        this.profileConfirmPassword
+      );
+      if (!success) {
+        throw new Error('保存失败');
+      }
+
+      this.isSheetShow = false;
+      this.activeSheet = CustomSheetType.NONE;
+      promptAction.showToast({ message: '密码修改成功' });
+    } catch (error) {
+      this.profileError = error instanceof Error ? error.message : '修改失败，请重试';
+    } finally {
+      this.profileSaving = false;
+    }
   }
 
   // 判断是否为市级管理员或市级领导

@@ -24,4 +24,7 @@ public class LoginDTO {
     /** 验证码(必填，用户输入的图片中的数字) */
     @NotBlank(message = "验证码不能为空")
     private String captchaCode;
+
+    /** 账户类型：sys/company（可选，不传时按兼容逻辑识别） */
+    private String accountType;
 }

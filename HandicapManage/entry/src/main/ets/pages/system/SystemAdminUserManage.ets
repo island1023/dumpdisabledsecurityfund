@@ -1,5 +1,5 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
-import { SystemUserService } from '../../services/SystemUserService';
+import { SystemUserService, ImportResult } from '../../services/SystemUserService';
 import { User } from '../../models/UserModel';
 import { promptAction } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
@@ -20,11 +20,8 @@ export struct SystemAdminUserManage {
   @State showDistrictDropdown: boolean = false;
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
-<<<<<<< Updated upstream
-  @State debugInfo: string = ''; // 调试信息
-=======
   @State editingUserId: string = '';
->>>>>>> Stashed changes
+  @State isImporting: boolean = false;
 
   private roleOptions: string[] = [
     'SYSTEM_ADMIN', 'CITY_ADMIN', 'DISTRICT_ADMIN',
@@ -54,7 +51,7 @@ export struct SystemAdminUserManage {
         console.log('第一个用户数据:', JSON.stringify(result.list[0]));
       }
       this.userList = result.list;
-      
+
       if (result.list.length === 0) {
         console.warn('用户列表为空，可能原因：1.后端没有数据 2.接口返回格式不对');
       }
@@ -64,7 +61,7 @@ export struct SystemAdminUserManage {
       AlertDialog.show({
         title: '错误',
         message: '加载用户列表失败，请检查：\n1.后端服务是否启动\n2.网络连接是否正常\n3.是否已登录',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -76,20 +73,6 @@ export struct SystemAdminUserManage {
 
   build() {
     Column() {
-      // 调试信息区域
-      if (this.debugInfo) {
-        Scroll() {
-          Text(this.debugInfo)
-            .fontSize(10)
-            .fontColor(ColorConstants.DANGER)
-            .width('100%')
-        }
-        .width('100%')
-        .height(60)
-        .backgroundColor('#FFF3CD')
-        .border({ width: 1, color: '#FFC107' })
-      }
-
       Row() {
         TextInput({ placeholder: '搜索用户名、姓名...', text: this.searchKeyword })
           .onChange((value: string) => {
@@ -100,7 +83,7 @@ export struct SystemAdminUserManage {
           .fontSize(14)
           .backgroundColor(ColorConstants.BG_CARD)
           .borderRadius(8)
-          .padding({ left: 12, right: 12 })
+          .padding({ left: 12, right: 12 });
 
         Button('搜索')
           .width(70)
@@ -112,7 +95,7 @@ export struct SystemAdminUserManage {
           .margin({ left: 8 })
           .onClick((): void => {
             this.loadUserList();
-          })
+          });
 
         Button('新增')
           .width(70)
@@ -124,50 +107,45 @@ export struct SystemAdminUserManage {
           .margin({ left: 8 })
           .onClick((): void => {
             console.log('点击新增按钮');
-            this.formUsername = '';
-            this.formRealName = '';
-            this.formRole = '';
-            this.formDistrict = '';
-            this.showRoleDropdown = false;
-            this.showDistrictDropdown = false;
+            this.resetAddForm();
             this.activeSheet = 'add';
             this.showAddDialog = true;
-          })
+          });
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-      .backgroundColor(ColorConstants.BG_PAGE)
+      .backgroundColor(ColorConstants.BG_PAGE);
 
       if (this.isLoading) {
         Column() {
           Text('加载中...')
             .fontSize(14)
-            .fontColor(ColorConstants.TEXT_SECONDARY)
+            .fontColor(ColorConstants.TEXT_SECONDARY);
         }
         .width('100%')
         .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
+        .justifyContent(FlexAlign.Center);
       } else if (this.userList.length === 0) {
         Column() {
           Text('暂无用户数据')
             .fontSize(14)
-            .fontColor(ColorConstants.TEXT_SECONDARY)
+            .fontColor(ColorConstants.TEXT_SECONDARY);
         }
         .width('100%')
         .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
+        .justifyContent(FlexAlign.Center);
       } else {
         List() {
           ForEach(this.userList, (user: User) => {
             ListItem() {
-              this.buildUserCard(user)
+              this.buildUserCard(user);
             }
-          })
+          });
         }
         .width('100%')
         .layoutWeight(1)
         .scrollBar(BarState.Off)
-        .backgroundColor(ColorConstants.BG_PAGE)
+        .backgroundColor(ColorConstants.BG_PAGE);
       }
     }
     .width('100%')
@@ -178,21 +156,30 @@ export struct SystemAdminUserManage {
       showClose: true,
       onDisappear: () => {
         console.log('弹窗关闭');
-        this.showAddDialog = false;
-        this.showPasswordDialog = false;
         this.activeSheet = '';
+        this.showPasswordDialog = false;
         this.showRoleDropdown = false;
         this.showDistrictDropdown = false;
       }
-    })
+    });
+  }
+
+  private closeCurrentSheet(): void {
+    this.showAddDialog = false;
+    this.showPasswordDialog = false;
+    this.showRoleDropdown = false;
+    this.showDistrictDropdown = false;
   }
 
   @Builder
   sheetBuilder(): void {
     if (this.activeSheet === 'add') {
-      this.buildAddDialog()
+      this.buildAddDialog();
     } else if (this.activeSheet === 'password') {
-      this.buildPasswordDialog()
+      this.buildPasswordDialog();
+    } else {
+      // 避免状态切换瞬间出现空白面板
+      this.buildAddDialog();
     }
   }
 
@@ -203,13 +190,13 @@ export struct SystemAdminUserManage {
         Column() {
           SymbolGlyph($r('sys.symbol.person_fill'))
             .fontSize(24)
-            .fontColor([ColorConstants.PRIMARY])
+            .fontColor([ColorConstants.PRIMARY]);
         }
         .width(40)
         .height(40)
         .backgroundColor('rgba(199, 28, 34, 0.1)')
         .borderRadius(20)
-        .justifyContent(FlexAlign.Center)
+        .justifyContent(FlexAlign.Center);
 
         Column() {
           Row() {
@@ -218,57 +205,53 @@ export struct SystemAdminUserManage {
               .fontWeight(FontWeight.Bold)
               .fontColor(ColorConstants.TEXT_TITLE)
               .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .textOverflow({ overflow: TextOverflow.Ellipsis });
           }
-          .width('100%')
+          .width('100%');
 
           Text(this.getRoleName(user.role))
             .fontSize(12)
             .fontColor(this.getRoleColor(user.role))
-            .margin({ top: 2 })
-
+            .margin({ top: 2 });
         }
         .alignItems(HorizontalAlign.Start)
         .margin({ left: 12 })
-        .layoutWeight(1)
+        .layoutWeight(1);
       }
       .width('100%')
-      .alignItems(VerticalAlign.Top)
+      .alignItems(VerticalAlign.Top);
 
       Row() {
         Column() {
           Text('用户名')
             .fontSize(11)
-            .fontColor(ColorConstants.TEXT_SECONDARY)
+            .fontColor(ColorConstants.TEXT_SECONDARY);
           Text(user.username)
             .fontSize(13)
             .fontColor(ColorConstants.TEXT_TITLE)
             .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .textOverflow({ overflow: TextOverflow.Ellipsis });
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(HorizontalAlign.Start);
 
         Column() {
           Text('创建时间')
             .fontSize(11)
-            .fontColor(ColorConstants.TEXT_SECONDARY)
+            .fontColor(ColorConstants.TEXT_SECONDARY);
           Text(user.createTime)
             .fontSize(13)
-            .fontColor(ColorConstants.TEXT_TITLE)
+            .fontColor(ColorConstants.TEXT_TITLE);
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(HorizontalAlign.Start);
       }
       .width('100%')
-      .margin({ top: 12 })
+      .margin({ top: 12 });
 
       Row() {
-<<<<<<< Updated upstream
-        Blank().layoutWeight(1)
-=======
         Button('编辑')
-          .width(62)
+          .width(92)
           .height(32)
           .fontSize(12)
           .fontColor(ColorConstants.PRIMARY)
@@ -276,11 +259,10 @@ export struct SystemAdminUserManage {
           .borderRadius(16)
           .onClick((): void => {
             this.handleEditUser(user);
-          })
->>>>>>> Stashed changes
+          });
 
         Button('重置密码')
-          .width(80)
+          .width(92)
           .height(32)
           .fontSize(12)
           .fontColor(ColorConstants.SUCCESS)
@@ -288,10 +270,10 @@ export struct SystemAdminUserManage {
           .borderRadius(16)
           .onClick((): void => {
             this.handleResetPassword(user.id);
-          })
+          });
 
         Button('删除')
-          .width(70)
+          .width(92)
           .height(32)
           .fontSize(12)
           .fontColor(ColorConstants.DANGER)
@@ -299,17 +281,18 @@ export struct SystemAdminUserManage {
           .borderRadius(16)
           .onClick((): void => {
             this.handleDeleteUser(user.id);
-          })
+          });
       }
       .width('100%')
-      .margin({ top: 12 })
+      .justifyContent(FlexAlign.SpaceBetween)
+      .margin({ top: 12 });
     }
     .width('100%')
     .padding(16)
     .backgroundColor(ColorConstants.BG_CARD)
     .borderRadius(12)
     .margin({ left: 16, right: 16, top: 8, bottom: 8 })
-    .border({ width: 1, color: ColorConstants.BORDER })
+    .border({ width: 1, color: ColorConstants.BORDER });
   }
 
   @Builder
@@ -321,31 +304,29 @@ export struct SystemAdminUserManage {
         .fontColor(ColorConstants.TEXT_TITLE)
         .width('100%')
         .textAlign(TextAlign.Center)
-        .padding({ top: 20, bottom: 16 })
+        .padding({ top: 20, bottom: 16 });
 
-      // 可滚动的表单区域
       Scroll() {
         Column() {
-          this.buildFormItem('用户名', this.formUsername, (val: string) => { this.formUsername = val; })
-          this.buildFormItem('姓名', this.formRealName, (val: string) => { this.formRealName = val; })
+          this.buildFormItem('用户名', this.formUsername, (val: string) => { this.formUsername = val; });
+          this.buildFormItem('姓名', this.formRealName, (val: string) => { this.formRealName = val; });
 
-          // 角色选择
           Column() {
             Text('角色')
               .fontSize(14)
               .fontColor(ColorConstants.TEXT_SECONDARY)
-              .margin({ bottom: 8 })
+              .margin({ bottom: 8 });
 
             Row() {
               Text(this.formRole ? this.getRoleName(this.formRole) : '请选择角色')
                 .fontSize(14)
                 .fontColor(this.formRole ? ColorConstants.TEXT_TITLE : ColorConstants.TEXT_SECONDARY)
-                .layoutWeight(1)
+                .layoutWeight(1);
 
               SymbolGlyph($r('sys.symbol.chevron_down'))
                 .fontSize(16)
                 .fontColor([ColorConstants.TEXT_SECONDARY])
-                .rotate({ angle: this.showRoleDropdown ? 180 : 0 })
+                .rotate({ angle: this.showRoleDropdown ? 180 : 0 });
             }
             .width('100%')
             .height(44)
@@ -356,7 +337,7 @@ export struct SystemAdminUserManage {
             .onClick((): void => {
               this.showRoleDropdown = !this.showRoleDropdown;
               this.showDistrictDropdown = false;
-            })
+            });
 
             if (this.showRoleDropdown) {
               List() {
@@ -367,12 +348,12 @@ export struct SystemAdminUserManage {
                         .fontSize(14)
                         .fontColor(this.formRole === roleCode ? ColorConstants.PRIMARY : ColorConstants.TEXT_TITLE)
                         .fontWeight(this.formRole === roleCode ? FontWeight.Bold : FontWeight.Normal)
-                        .layoutWeight(1)
+                        .layoutWeight(1);
 
                       if (this.formRole === roleCode) {
                         SymbolGlyph($r('sys.symbol.checkmark'))
                           .fontSize(16)
-                          .fontColor([ColorConstants.PRIMARY])
+                          .fontColor([ColorConstants.PRIMARY]);
                       }
                     }
                     .width('100%')
@@ -381,7 +362,7 @@ export struct SystemAdminUserManage {
                     .onClick((): void => {
                       this.formRole = roleCode;
                       this.showRoleDropdown = false;
-                      if (['DISTRICT_ADMIN', 'DISTRICT_LEADER'].includes(roleCode)) {
+                      if (['DISTRICT_ADMIN', 'DISTRICT_LEADER', 'UNIT'].includes(roleCode)) {
                         this.formDistrict = '';
                         this.showDistrictDropdown = true;
                       } else if (['CITY_ADMIN', 'CITY_LEADER'].includes(roleCode)) {
@@ -391,33 +372,32 @@ export struct SystemAdminUserManage {
                         this.formDistrict = '';
                         this.showDistrictDropdown = false;
                       }
-                    })
+                    });
                   }
-                })
+                });
               }
               .width('100%')
               .height(180)
               .borderRadius(8)
               .border({ width: 1, color: ColorConstants.BORDER })
-              .margin({ top: 8 })
+              .margin({ top: 8 });
             }
           }
           .width('100%')
-          .margin({ bottom: 16 })
+          .margin({ bottom: 16 });
 
-          // 地区选择 - 仅区级角色显示
-          if (['DISTRICT_ADMIN', 'DISTRICT_LEADER'].includes(this.formRole)) {
+          if (['DISTRICT_ADMIN', 'DISTRICT_LEADER', 'UNIT'].includes(this.formRole)) {
             Column() {
               Row() {
                 Text(this.formDistrict || '所属地区')
                   .fontSize(14)
                   .fontColor(this.formDistrict ? ColorConstants.TEXT_TITLE : ColorConstants.TEXT_SECONDARY)
-                  .layoutWeight(1)
+                  .layoutWeight(1);
 
                 SymbolGlyph($r('sys.symbol.chevron_down'))
                   .fontSize(16)
                   .fontColor([ColorConstants.TEXT_SECONDARY])
-                  .rotate({ angle: this.showDistrictDropdown ? 180 : 0 })
+                  .rotate({ angle: this.showDistrictDropdown ? 180 : 0 });
               }
               .width('100%')
               .height(44)
@@ -428,7 +408,7 @@ export struct SystemAdminUserManage {
               .margin({ bottom: 8 })
               .onClick((): void => {
                 this.showDistrictDropdown = !this.showDistrictDropdown;
-              })
+              });
 
               if (this.showDistrictDropdown) {
                 List() {
@@ -439,12 +419,12 @@ export struct SystemAdminUserManage {
                           .fontSize(14)
                           .fontColor(this.formDistrict === district ? ColorConstants.PRIMARY : ColorConstants.TEXT_TITLE)
                           .fontWeight(this.formDistrict === district ? FontWeight.Bold : FontWeight.Normal)
-                          .layoutWeight(1)
+                          .layoutWeight(1);
 
                         if (this.formDistrict === district) {
                           SymbolGlyph($r('sys.symbol.checkmark'))
                             .fontSize(16)
-                            .fontColor([ColorConstants.PRIMARY])
+                            .fontColor([ColorConstants.PRIMARY]);
                         }
                       }
                       .width('100%')
@@ -453,21 +433,21 @@ export struct SystemAdminUserManage {
                       .onClick((): void => {
                         this.formDistrict = district;
                         this.showDistrictDropdown = false;
-                      })
+                      });
                     }
-                  })
+                  });
                 }
                 .width('100%')
                 .height(180)
                 .borderRadius(8)
-                .border({ width: 1, color: ColorConstants.BORDER })
+                .border({ width: 1, color: ColorConstants.BORDER });
               }
             }
             .width('100%')
-            .margin({ bottom: 16 })
+            .margin({ bottom: 16 });
           }
 
-          Button('通过Excel导入')
+          Button(this.isImporting ? '导入中...' : '通过Excel导入')
             .width('100%')
             .height(44)
             .fontSize(14)
@@ -475,18 +455,18 @@ export struct SystemAdminUserManage {
             .backgroundColor('rgba(199, 28, 34, 0.1)')
             .borderRadius(8)
             .margin({ bottom: 16 })
+            .enabled(!this.isImporting)
             .onClick(async (): Promise<void> => {
               await this.handleImportExcel();
-            })
+            });
         }
-        .width('100%')
+        .width('100%');
       }
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Auto)
-      .align(Alignment.Top)
+      .align(Alignment.Top);
 
-      // 按钮区域固定在底部
       Row() {
         Button('取消')
           .layoutWeight(1)
@@ -499,10 +479,8 @@ export struct SystemAdminUserManage {
           .margin({ right: 8 })
           .onClick((): void => {
             console.log('取消按钮被点击');
-            this.showAddDialog = false;
-            this.showRoleDropdown = false;
-            this.showDistrictDropdown = false;
-          })
+            this.closeCurrentSheet();
+          });
 
         Button('保存')
           .layoutWeight(1)
@@ -512,17 +490,17 @@ export struct SystemAdminUserManage {
           .backgroundColor(ColorConstants.PRIMARY)
           .borderRadius(8)
           .margin({ left: 8 })
-          .onClick((): void => {
+          .onClick(async (): Promise<void> => {
             console.log('=== 保存按钮被点击 ===');
-            this.handleSaveUser();
-          })
+            await this.handleSaveUser();
+          });
       }
       .width('100%')
-      .padding({ top: 16, bottom: 20 })
+      .padding({ top: 16, bottom: 20 });
     }
     .width('100%')
     .padding({ left: 20, right: 20 })
-    .height('100%')
+    .height('100%');
   }
 
   @Builder
@@ -532,15 +510,15 @@ export struct SystemAdminUserManage {
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
         .fontColor(ColorConstants.TEXT_TITLE)
-        .margin({ top: 20, bottom: 16 })
+        .margin({ top: 20, bottom: 16 });
 
       Column() {
         Text('请将以下密码告知用户，并提醒其尽快修改')
           .fontSize(14)
           .fontColor(ColorConstants.TEXT_SECONDARY)
-          .margin({ bottom: 16 })
+          .margin({ bottom: 16 });
 
-        Text(this.newPassword || '获取密码失败')
+        Text(this.newPassword || '123456')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor(ColorConstants.PRIMARY)
@@ -549,10 +527,10 @@ export struct SystemAdminUserManage {
           .borderRadius(8)
           .width('100%')
           .textAlign(TextAlign.Center)
-          .copyOption(CopyOptions.LocalDevice)
+          .copyOption(CopyOptions.LocalDevice);
       }
       .width('100%')
-      .padding({ left: 24, right: 24 })
+      .padding({ left: 24, right: 24 });
 
       Button('我知道了')
         .width('100%')
@@ -563,11 +541,11 @@ export struct SystemAdminUserManage {
         .borderRadius(8)
         .margin({ top: 24, left: 24, right: 24, bottom: 20 })
         .onClick((): void => {
-          this.showPasswordDialog = false;
-          this.newPassword = ''; // 关闭时清空
-        })
+          this.closeCurrentSheet();
+          this.newPassword = '';
+        });
     }
-    .width('100%')
+    .width('100%');
   }
 
   @Builder
@@ -576,7 +554,7 @@ export struct SystemAdminUserManage {
       Text(label)
         .fontSize(14)
         .fontColor(ColorConstants.TEXT_SECONDARY)
-        .margin({ bottom: 8 })
+        .margin({ bottom: 8 });
 
       TextInput({ placeholder: '请输入' + label, text: value })
         .onChange(onChange)
@@ -585,10 +563,10 @@ export struct SystemAdminUserManage {
         .fontSize(14)
         .backgroundColor(ColorConstants.BG_PAGE)
         .borderRadius(8)
-        .padding({ left: 12, right: 12 })
+        .padding({ left: 12, right: 12 });
     }
     .width('100%')
-    .margin({ bottom: 16 })
+    .margin({ bottom: 16 });
   }
 
   private getRoleName(role: string): string {
@@ -617,12 +595,11 @@ export struct SystemAdminUserManage {
 
   private async handleResetPassword(userId: string) {
     try {
-      // 调用后端接口重置密码
       console.log('重置密码，userId:', userId);
-      await SystemUserService.resetPassword(userId);
-      
-      // 显示固定密码给用户看
-      this.newPassword = '123456';
+      this.newPassword = await SystemUserService.resetPassword(userId);
+      if (!this.newPassword || this.newPassword.trim().length === 0) {
+        this.newPassword = '123456';
+      }
       this.activeSheet = 'password';
       this.showAddDialog = true;
     } catch (error) {
@@ -630,7 +607,7 @@ export struct SystemAdminUserManage {
       AlertDialog.show({
         title: '错误',
         message: error instanceof Error ? error.message : '重置密码失败，请重试',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -648,24 +625,11 @@ export struct SystemAdminUserManage {
   }
 
   async handleSaveUser() {
-    // 清空调试信息
-    this.debugInfo = '';
-    
-    this.debugInfo += '开始新增用户\n';
-    this.debugInfo += '表单数据: ' + JSON.stringify({
-      username: this.formUsername,
-      realName: this.formRealName,
-      role: this.formRole,
-      district: this.formDistrict
-    }) + '\n';
-    
-    // 验证必填项
     if (!this.formUsername.trim() || !this.formRealName.trim() || !this.formRole) {
-      this.debugInfo += '❌ 验证失败：必填项为空\n';
       AlertDialog.show({
         title: '提示',
         message: '请填写必填项（用户名、姓名、角色）',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -673,13 +637,11 @@ export struct SystemAdminUserManage {
       return;
     }
 
-    // 只有区级角色需要验证是否选择了地区
-    if (['DISTRICT_ADMIN', 'DISTRICT_LEADER'].includes(this.formRole) && !this.formDistrict.trim()) {
-      this.debugInfo += '❌ 验证失败：需要选择管辖区域\n';
+    if (['DISTRICT_ADMIN', 'DISTRICT_LEADER', 'UNIT'].includes(this.formRole) && !this.formDistrict.trim()) {
       AlertDialog.show({
         title: '提示',
-        message: '请选择管辖区域',
-        primaryButton: { 
+        message: '请选择所属地区',
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
@@ -687,92 +649,45 @@ export struct SystemAdminUserManage {
       return;
     }
 
-    this.debugInfo += '✅ 验证通过，准备调用接口\n';
-
     try {
-<<<<<<< Updated upstream
-      this.debugInfo += '📡 调用新增用户接口...\n';
-      // 构建请求参数 - 使用Partial<User>类型
-=======
       const isEditMode = !!this.editingUserId;
-      // 构建请求参数
->>>>>>> Stashed changes
       const userData: Partial<User> = {
         username: this.formUsername,
         realName: this.formRealName,
         role: this.formRole,
         districtName: this.formDistrict || undefined
       };
-      
-<<<<<<< Updated upstream
-      this.debugInfo += '📤 请求参数: ' + JSON.stringify(userData) + '\n';
-=======
+
       if (this.editingUserId) {
         await SystemUserService.updateUser(this.editingUserId, userData);
       } else {
         await SystemUserService.addUser(userData);
       }
->>>>>>> Stashed changes
-      
-      // 添加调试：显示即将调用的Service
-      console.log('🔍 准备调用 SystemUserService.addUser');
-      console.log('🔍 参数:', JSON.stringify(userData));
-      
-      const result = await SystemUserService.addUser(userData);
-      
-      console.log('🔍 SystemUserService.addUser 返回了结果');
-      console.log('🔍 结果:', JSON.stringify(result));
-      
-      this.debugInfo += '📥 接口返回结果: ' + JSON.stringify(result) + '\n';
-      
-      this.debugInfo += '✅ 用户新增成功\n';
-      
-      // 先关闭弹窗
-      this.debugInfo += '🔄 关闭弹窗...\n';
-      this.showAddDialog = false;
-      this.showRoleDropdown = false;
-      this.showDistrictDropdown = false;
-      this.activeSheet = '';
-      
-      // 清空表单
-      this.debugInfo += '🔄 清空表单...\n';
-      this.formUsername = '';
-      this.formRealName = '';
-      this.formRole = '';
-      this.formDistrict = '';
-      
-      // 刷新用户列表
-      this.debugInfo += '🔄 刷新用户列表...\n';
+
+      this.closeCurrentSheet();
+
+      this.resetAddForm();
       await this.loadUserList();
-      this.debugInfo += '✅ 用户列表刷新完成\n';
-      
-      // 显示成功提示
-      this.debugInfo += '💬 显示成功提示\n';
+
       AlertDialog.show({
         title: '成功',
         message: isEditMode ? '用户更新成功' : '用户新增成功',
-        primaryButton: { 
+        primaryButton: {
           value: '确定',
-          action: () => {
-            this.debugInfo = ''; // 清空调试信息
-          }
+          action: () => {}
         }
       });
     } catch (error) {
-      this.debugInfo += '❌ 新增用户失败\n';
-      this.debugInfo += '错误详情: ' + (error instanceof Error ? error.message : JSON.stringify(error)) + '\n';
       AlertDialog.show({
         title: '错误',
-        message: error instanceof Error ? error.message : '用户新增失败，请重试',
-        primaryButton: { 
+        message: error instanceof Error ? error.message : '操作失败，请重试',
+        primaryButton: {
           value: '确定',
           action: () => {}
         }
       });
     }
   }
-<<<<<<< Updated upstream
-=======
 
   private resetAddForm(): void {
     this.editingUserId = '';
@@ -797,7 +712,9 @@ export struct SystemAdminUserManage {
   }
 
   private async handleImportExcel(): Promise<void> {
+    this.isImporting = true;
     try {
+      promptAction.showToast({ message: '请选择要导入的Excel文件' });
       const documentPicker = new picker.DocumentViewPicker();
       const options = new picker.DocumentSelectOptions();
       options.maxSelectNumber = 1;
@@ -805,18 +722,20 @@ export struct SystemAdminUserManage {
 
       const selectedUris: Array<string> = await documentPicker.select(options);
       if (!selectedUris || selectedUris.length === 0) {
+        promptAction.showToast({ message: '已取消选择文件' });
         return;
       }
 
       const fileUri = selectedUris[0];
       const fileName = fileUri.substring(fileUri.lastIndexOf('/') + 1) || 'import.xlsx';
 
-      const result = await SystemUserService.importUsersByExcel(fileUri, fileName);
+      const result: ImportResult = await SystemUserService.importUsersByExcel(fileUri, fileName);
       await this.loadUserList();
       promptAction.showToast({
         message: `导入完成：成功${result.successCount}条，失败${result.failCount}条`
       });
     } catch (error) {
+      console.error('Excel导入失败:', error);
       AlertDialog.show({
         title: '导入失败',
         message: error instanceof Error ? error.message : 'Excel导入失败，请重试',
@@ -825,7 +744,8 @@ export struct SystemAdminUserManage {
           action: () => {}
         }
       });
+    } finally {
+      this.isImporting = false;
     }
   }
->>>>>>> Stashed changes
 }

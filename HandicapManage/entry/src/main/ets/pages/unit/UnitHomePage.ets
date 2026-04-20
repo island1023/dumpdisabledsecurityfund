@@ -1107,6 +1107,7 @@ export struct UnitHomePage {
   private handleLogout() {
     this.isSheetShow = false;
     appViewModel.logout();
+    AppStorage.setOrCreate('token', '');
     router.replaceUrl({ url: 'pages/LoginPage' });
   }
 
@@ -1129,11 +1130,10 @@ export struct UnitHomePage {
 
   private async handleAddEmployee() {
     try {
-      const employeeData: AddEmployeeData = {
-        name: this.newEmployeeName,
-        idCard: this.newEmployeeIdCard,
-        hireDate: this.newEmployeeHireDate
-      };
+      const employeeData = new AddEmployeeData();
+      employeeData.name = this.newEmployeeName;
+      employeeData.idCard = this.newEmployeeIdCard;
+      employeeData.hireDate = this.newEmployeeHireDate;
       await UnitService.addEmployee(employeeData);
       this.isSheetShow = false;
     } catch (error) {
@@ -1143,12 +1143,11 @@ export struct UnitHomePage {
 
   private async handleAddDisabledEmployee() {
     try {
-      const disabledData: AddDisabledEmployeeData = {
-        employeeIds: this.selectedNonDisabledEmployees,
-        disabilityType: this.newDisabilityType,
-        disabilityLevel: this.newDisabilityLevel,
-        attachment: this.newDisabilityAttachment
-      };
+      const disabledData = new AddDisabledEmployeeData();
+      disabledData.employeeIds = this.selectedNonDisabledEmployees;
+      disabledData.disabilityType = this.newDisabilityType;
+      disabledData.disabilityLevel = this.newDisabilityLevel;
+      disabledData.attachment = this.newDisabilityAttachment;
       await UnitService.addDisabledEmployees(disabledData);
       this.loadDisabledEmployees();
       this.isSheetShow = false;

@@ -48,6 +48,27 @@ public class AuthServiceImpl implements AuthService {
             return Result.error("captcha invalid or expired");
         }
 
+        String accountType = dto.getAccountType();
+        if (accountType != null) {
+            accountType = accountType.trim().toLowerCase();
+        }
+
+        // 显式指定账户类型时，按类型精确登录，避免 sys/company 同名账号串角色
+        if ("company".equals(accountType)) {
+            CompanyUser companyUser = companyUserMapper.selectByUsername(dto.getUsername());
+            if (companyUser == null) {
+                return Result.error("单位账号不存在");
+            }
+            return loginCompanyUser(companyUser, dto.getPassword());
+        }
+        if ("sys".equals(accountType)) {
+            SysUser sysUser = sysUserMapper.selectByUsername(dto.getUsername());
+            if (sysUser == null) {
+                return Result.error("系统账号不存在");
+            }
+            return loginSystemUser(sysUser, dto.getPassword());
+        }
+
         SysUser sysUser = sysUserMapper.selectByUsername(dto.getUsername());
         if (sysUser != null) {
             return loginSystemUser(sysUser, dto.getPassword());
@@ -199,12 +220,9 @@ public class AuthServiceImpl implements AuthService {
             return Result.error("account disabled");
         }
 
-        List<String> roleCodes = userRoleMapper.selectRoleCodesByUserId(user.getId());
-        if (roleCodes == null) {
-            roleCodes = new ArrayList<>();
-        }
+        List<String> roleCodes = normalizeRoleCodes(userRoleMapper.selectRoleCodesByUserId(user.getId()));
         if (roleCodes.isEmpty()) {
-            roleCodes.add(user.getUserType() != null && user.getUserType() == 2 ? "leader_default" : "admin_default");
+            roleCodes.add(resolveDefaultRoleCode(user));
         }
 
         Map<String, Object> claims = new HashMap<>();
@@ -358,5 +376,60 @@ public class AuthServiceImpl implements AuthService {
         menus.add("notice");
         menus.add("statisticsReport");
         return menus;
+    }
+
+    private List<String> normalizeRoleCodes(List<String> dbRoleCodes) {
+        List<String> normalized = new ArrayList<>();
+        if (dbRoleCodes == null) {
+            return normalized;
+        }
+
+        for (String code : dbRoleCodes) {
+            if (code == null || code.trim().isEmpty()) {
+                continue;
+            }
+            String raw = code.trim();
+            switch (raw) {
+                case "SYSTEM_ADMIN":
+                    normalized.add("admin_system");
+                    break;
+                case "CITY_ADMIN":
+                    normalized.add("admin_city");
+                    break;
+                case "DISTRICT_ADMIN":
+                    normalized.add("admin_district");
+                    break;
+                case "CITY_LEADER":
+                case "DISTRICT_LEADER":
+                    normalized.add("leader");
+                    break;
+                case "UNIT":
+                    normalized.add("company_user");
+                    break;
+                default:
+                    normalized.add(raw);
+                    break;
+            }
+        }
+        return normalized;
+    }
+
+    private String resolveDefaultRoleCode(SysUser user) {
+        if (user.getUserType() != null && user.getUserType() == 2) {
+            return "leader";
+        }
+        if (user.getAdminLevel() != null) {
+            switch (user.getAdminLevel()) {
+                case 1:
+                    return "admin_system";
+                case 2:
+                    return "admin_city";
+                case 3:
+                    return "admin_district";
+                default:
+                    return "admin_system";
+            }
+        }
+        return "admin_system";
     }
 }

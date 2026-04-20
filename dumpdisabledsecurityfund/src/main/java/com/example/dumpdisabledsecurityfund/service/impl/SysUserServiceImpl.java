@@ -5,8 +5,12 @@ import com.example.dumpdisabledsecurityfund.common.PageResult;
 import com.example.dumpdisabledsecurityfund.common.Result;
 import com.example.dumpdisabledsecurityfund.dto.SysUserCreateDTO;
 import com.example.dumpdisabledsecurityfund.dto.SysUserUpdateDTO;
+import com.example.dumpdisabledsecurityfund.entity.Company;
+import com.example.dumpdisabledsecurityfund.entity.CompanyUser;
 import com.example.dumpdisabledsecurityfund.entity.Region;
 import com.example.dumpdisabledsecurityfund.entity.SysUser;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyMapper;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyUserMapper;
 import com.example.dumpdisabledsecurityfund.mapper.RegionMapper;
 import com.example.dumpdisabledsecurityfund.mapper.SysUserMapper;
 import com.example.dumpdisabledsecurityfund.service.SysUserService;
@@ -35,6 +39,12 @@ public class SysUserServiceImpl implements SysUserService {
     @Resource
     private RegionMapper regionMapper;
 
+    @Resource
+    private CompanyMapper companyMapper;
+
+    @Resource
+    private CompanyUserMapper companyUserMapper;
+
     @Override
     public Result<?> list(String keyword, Integer pageNum, Integer pageSize) {
         if (pageNum == null || pageNum < 1) pageNum = 1;
@@ -57,6 +67,15 @@ public class SysUserServiceImpl implements SysUserService {
         SysUser existingUser = sysUserMapper.selectByUsername(dto.getUsername());
         if (existingUser != null) {
             return Result.error("用户名已存在");
+        }
+        CompanyUser existingCompanyUser = companyUserMapper.selectByUsername(dto.getUsername());
+        if (existingCompanyUser != null) {
+            return Result.error("用户名已存在");
+        }
+
+        String role = dto.getRole() == null ? "" : dto.getRole().trim().toUpperCase();
+        if ("UNIT".equals(role)) {
+            return createCompanyUser(dto);
         }
 
         SysUser user = new SysUser();
@@ -87,6 +106,55 @@ public class SysUserServiceImpl implements SysUserService {
         data.put("password", "123456");
 
         return Result.success("创建成功", data);
+    }
+
+    private Result<?> createCompanyUser(SysUserCreateDTO dto) {
+        Region region = null;
+        if (dto.getDistrict() != null && !dto.getDistrict().isEmpty()) {
+            region = regionMapper.selectByName(dto.getDistrict());
+        }
+        if (region == null) {
+            region = regionMapper.selectById(510100L);
+        }
+        if (region == null) {
+            return Result.error("未找到可用地区，请先配置地区数据");
+        }
+
+        Company company = new Company();
+        company.setUnifiedSocialCreditCode(generateTempCreditCode(dto.getUsername()));
+        company.setName(dto.getRealName() + "单位");
+        company.setRegionId(region.getId());
+        company.setLegalPerson(dto.getRealName());
+        company.setContactPhone("");
+        company.setIndustry("未分类");
+        company.setAddress("");
+        company.setEmployeeCount(0);
+        company.setStatus(1);
+        company.setCreateTime(DateUtil.now());
+        company.setUpdateTime(DateUtil.now());
+        companyMapper.insert(company);
+
+        CompanyUser companyUser = new CompanyUser();
+        companyUser.setCompanyId(company.getId());
+        companyUser.setUsername(dto.getUsername());
+        companyUser.setPassword(PasswordUtil.encrypt("123456"));
+        companyUser.setName(dto.getRealName());
+        companyUser.setStatus(1);
+        companyUser.setCreateTime(DateUtil.now());
+        companyUser.setUpdateTime(DateUtil.now());
+        companyUserMapper.insert(companyUser);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", String.valueOf(companyUser.getId()));
+        data.put("username", companyUser.getUsername());
+        data.put("password", "123456");
+        data.put("accountType", "company");
+        return Result.success("创建成功", data);
+    }
+
+    private String generateTempCreditCode(String username) {
+        String raw = "TEMP_" + username + "_" + System.currentTimeMillis();
+        return raw.length() <= 50 ? raw : raw.substring(0, 50);
     }
 
     @Override

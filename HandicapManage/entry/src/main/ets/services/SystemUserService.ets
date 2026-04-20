@@ -1,11 +1,21 @@
-import { get, post, put, del } from './HttpUtil';
+import { get, post, put, del, uploadFile } from './HttpUtil';
 import { User, UserListResponse, UserQueryParams } from '../models/UserModel';
+
+class UserUpsertRequestData {
+  username?: string;
+  realName?: string;
+  role?: string;
+  district?: string;
+  status?: string;
+}
 
 /**
  * 重置密码响应
  */
 export interface ResetPasswordResponse {
-  password: string;
+  password?: string;
+  newPassword?: string;
+  data?: ResetPasswordResponse;
 }
 
 /**
@@ -77,18 +87,18 @@ export class SystemUserService {
     console.log('=== SystemUserService.addUser 开始 ===');
     console.log('传入参数:', JSON.stringify(user));
     
-    const requestData: Record<string, Object> = {};
+    const requestData = new UserUpsertRequestData();
     if (user.username) {
-      requestData.username = user.username as Object;
+      requestData.username = user.username;
     }
     if (user.realName) {
-      requestData.realName = user.realName as Object;
+      requestData.realName = user.realName;
     }
     if (user.role) {
-      requestData.role = user.role as Object;
+      requestData.role = user.role;
     }
     if (user.districtName) {
-      requestData.district = user.districtName as Object;
+      requestData.district = user.districtName;
     }
     
     console.log('构建的请求数据:', JSON.stringify(requestData));
@@ -98,7 +108,7 @@ export class SystemUserService {
       const response = await post<AddUserResponse>('/system/users', requestData);
       console.log('接口响应:', JSON.stringify(response));
       
-      if (response.code === 200) {
+      if (response.code >= 200 && response.code < 300) {
         console.log('=== SystemUserService.addUser 成功 ===');
         return response.data;
       }
@@ -120,22 +130,22 @@ export class SystemUserService {
    * 更新用户
    */
   static async updateUser(userId: string, user: Partial<User>): Promise<boolean> {
-    const requestData: Record<string, Object> = {};
+    const requestData = new UserUpsertRequestData();
     if (user.realName) {
-      requestData.realName = user.realName as Object;
+      requestData.realName = user.realName;
     }
     if (user.role) {
-      requestData.role = user.role as Object;
+      requestData.role = user.role;
     }
     if (user.districtName) {
-      requestData.district = user.districtName as Object;
+      requestData.district = user.districtName;
     }
     if (user.status) {
-      requestData.status = user.status as Object;
+      requestData.status = user.status;
     }
     
     const response = await put(`/system/users/${userId}`, requestData);
-    return response.code === 200;
+    return response.code >= 200 && response.code < 300;
   }
 
   /**
@@ -151,8 +161,8 @@ export class SystemUserService {
    */
   static async toggleStatus(userId: string, status: string): Promise<boolean> {
     const url = `/system/users/${userId}`;
-    const requestData: Record<string, Object> = {};
-    requestData.status = status as Object;
+    const requestData = new UserUpsertRequestData();
+    requestData.status = status;
     const response = await put(url, requestData);
     return response.code === 200;
   }
@@ -168,10 +178,35 @@ export class SystemUserService {
     console.log('重置密码响应:', JSON.stringify(response));
 
     if (response.code === 200) {
-      return response.data.password;
+      const data = response.data;
+      // 兼容后端可能返回 data 嵌套、空字符串或不同字段的情况
+      const password = data.password
+        ? data.password
+        : (data.newPassword
+          ? data.newPassword
+          : (data.data && data.data.password
+            ? data.data.password
+            : (data.data && data.data.newPassword ? data.data.newPassword : '')));
+      if (password && password.trim().length > 0) {
+        return password;
+      }
+      console.warn('重置成功但接口未返回有效密码字段，默认显示 123456');
+      return '123456';
     }
 
     throw new Error(response.message);
+  }
+
+  /**
+   * 通过Excel导入用户
+   */
+  static async importUsersByExcel(fileUri: string, fileName: string): Promise<ImportResult> {
+    console.log('开始导入Excel文件:', fileName);
+    const response = await uploadFile<ImportResult>('/system/users/import', fileUri, 'file', fileName);
+    if (response.code === 200) {
+      return response.data;
+    }
+    throw new Error(response.message || 'Excel导入失败');
   }
 
   /**

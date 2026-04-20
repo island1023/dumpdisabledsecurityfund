@@ -75,7 +75,7 @@ export class RoleService {
     const params: Record<string, string | number | boolean> = {};
     params.status = status;
     
-    const response = await put(url, {} as Record<string, Object>, params);
+    const response = await put(url, {}, params);
     return response.code === 200;
   }
 }

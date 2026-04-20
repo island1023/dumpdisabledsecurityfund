@@ -40,6 +40,10 @@ interface ApprovalResponseData {
   total: number;
 }
 
+class RejectApprovalRequestData {
+  reason: string = '';
+}
+
 @Component
 export struct ApprovalPendingPage {
   @State searchKeyword: string = '';
@@ -790,7 +794,7 @@ export struct ApprovalPendingPage {
   private async handleConfirmApprove() {
     if (this.selectedApproval) {
       try {
-        const requestData: Record<string, Object> = {};
+        const requestData = new Object();
         const response = await post(`/approval/${this.selectedApproval.id}/approve`, requestData);
         if (response.code === 200) {
           this.loadApprovalList();
@@ -805,8 +809,8 @@ export struct ApprovalPendingPage {
   private async handleConfirmReject() {
     if (this.selectedApproval && this.rejectReason.trim()) {
       try {
-        const rejectData: Record<string, Object> = {};
-        rejectData.reason = this.rejectReason as Object;
+        const rejectData = new RejectApprovalRequestData();
+        rejectData.reason = this.rejectReason;
         const response = await post(`/approval/${this.selectedApproval.id}/reject`, rejectData);
         if (response.code === 200) {
           this.loadApprovalList();
