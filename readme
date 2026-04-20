@@ -1,0 +1,4 @@
+项目需要配置：maven配置自动更新
+              mysql数据库   mysql8.0
+              下载并开启redis      Redis-7.2.13-Windows-x64-cygwin-with-Service
+              
