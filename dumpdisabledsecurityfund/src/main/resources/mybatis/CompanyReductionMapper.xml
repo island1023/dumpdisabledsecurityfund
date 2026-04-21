@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.CompanyReductionMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.CompanyReduction">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="year" property="year"/>
+        <result column="apply_type" property="applyType"/>
+        <result column="apply_amount" property="applyAmount"/>
+        <result column="reason" property="reason"/>
+        <result column="audit_status" property="auditStatus"/>
+        <result column="auditor_id" property="auditorId"/>
+        <result column="audit_opinion" property="auditOpinion"/>
+        <result column="audit_time" property="auditTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO company_reduction(
+            company_id, year, apply_type, apply_amount, reason,
+            audit_status, auditor_id, audit_opinion, audit_time,
+            create_time, update_time
+        ) VALUES(
+                    #{companyId}, #{year}, #{applyType}, #{applyAmount}, #{reason},
+                    #{auditStatus}, #{auditorId}, #{auditOpinion}, #{auditTime},
+                    #{createTime}, #{updateTime}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM company_reduction WHERE id = #{id}
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM company_reduction
+        WHERE company_id = #{companyId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByCompanyIdAndYear" resultMap="BaseResultMap">
+        SELECT * FROM company_reduction
+        WHERE company_id = #{companyId} AND year = #{year}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByAuditStatus" resultMap="BaseResultMap">
+        SELECT * FROM company_reduction
+        WHERE audit_status = #{auditStatus}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="sumApplyAmountByYear" resultType="java.lang.Double">
+        SELECT IFNULL(SUM(apply_amount), 0)
+        FROM company_reduction
+        WHERE year = #{year} AND audit_status = 1
+    </select>
+
+    <update id="updateById">
+        UPDATE company_reduction
+        <set>
+            <if test="applyAmount != null">apply_amount = #{applyAmount},</if>
+            <if test="reason != null">reason = #{reason},</if>
+            <if test="auditStatus != null">audit_status = #{auditStatus},</if>
+            <if test="auditorId != null">auditor_id = #{auditorId},</if>
+            <if test="auditOpinion != null">audit_opinion = #{auditOpinion},</if>
+            <if test="auditTime != null">audit_time = #{auditTime},</if>
+            update_time = #{updateTime}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateAuditStatus">
+        UPDATE company_reduction
+        SET audit_status = #{auditStatus},
+            auditor_id = #{auditorId},
+            audit_opinion = #{auditOpinion},
+            audit_time = #{auditTime},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM company_reduction WHERE id = #{id}
+    </delete>
+
+</mapper>
