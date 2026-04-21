@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.NoticeMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.Notice">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="notice_type" property="noticeType"/>
+        <result column="notice_number" property="noticeNumber"/>
+        <result column="content" property="content"/>
+        <result column="print_time" property="printTime"/>
+        <result column="print_count" property="printCount"/>
+        <result column="send_status" property="sendStatus"/>
+        <result column="operator_id" property="operatorId"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notice(
+            company_id, notice_type, notice_number, content,
+            print_time, print_count, send_status, operator_id
+        ) VALUES(
+                    #{companyId}, #{noticeType}, #{noticeNumber}, #{content},
+                    #{printTime}, #{printCount}, #{sendStatus}, #{operatorId}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM notice WHERE id = #{id}
+    </select>
+
+    <select id="selectByIds" resultMap="BaseResultMap">
+        SELECT * FROM notice WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM notice
+        WHERE company_id = #{companyId}
+        ORDER BY print_time DESC
+    </select>
+
+    <select id="selectByCompanyIdWithPage" resultMap="BaseResultMap">
+        SELECT * FROM notice
+        WHERE company_id = #{companyId}
+        <if test="unreadOnly != null and unreadOnly">
+            AND send_status = 0
+        </if>
+        ORDER BY print_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCompanyId" resultType="long">
+        SELECT COUNT(*) FROM notice
+        WHERE company_id = #{companyId}
+        <if test="unreadOnly != null and unreadOnly">
+            AND send_status = 0
+        </if>
+    </select>
+
+    <select id="selectByNoticeType" resultMap="BaseResultMap">
+        SELECT * FROM notice
+        WHERE notice_type = #{noticeType}
+        ORDER BY print_time DESC
+    </select>
+
+    <select id="selectBySendStatus" resultMap="BaseResultMap">
+        SELECT * FROM notice
+        WHERE send_status = #{sendStatus}
+        ORDER BY print_time DESC
+    </select>
+
+    <select id="selectByNoticeNumber" resultMap="BaseResultMap">
+        SELECT * FROM notice WHERE notice_number = #{noticeNumber}
+    </select>
+
+    <update id="updateById">
+        UPDATE notice
+        <set>
+            <if test="noticeType != null">notice_type = #{noticeType},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="printTime != null">print_time = #{printTime},</if>
+            <if test="printCount != null">print_count = #{printCount},</if>
+            <if test="sendStatus != null">send_status = #{sendStatus},</if>
+            <if test="operatorId != null">operator_id = #{operatorId},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementPrintCount">
+        UPDATE notice
+        SET print_count = print_count + 1,
+            print_time = #{printTime}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateSendStatus">
+        UPDATE notice
+        SET send_status = #{sendStatus}
+        WHERE id = #{id}
+    </update>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM notice
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM notice WHERE id = #{id}
+    </delete>
+
+</mapper>
+

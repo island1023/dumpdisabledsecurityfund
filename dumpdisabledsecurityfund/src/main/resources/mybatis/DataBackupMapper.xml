@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.DataBackupMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.DataBackup">
+        <id column="id" property="id"/>
+        <result column="backup_name" property="backupName"/>
+        <result column="backup_path" property="backupPath"/>
+        <result column="backup_size" property="backupSize"/>
+        <result column="backup_type" property="backupType"/>
+        <result column="operator_id" property="operatorId"/>
+        <result column="backup_time" property="backupTime"/>
+        <result column="restore_time" property="restoreTime"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO data_backup(
+            backup_name, backup_path, backup_size, backup_type,
+            operator_id, backup_time, restore_time, remark
+        ) VALUES(
+                    #{backupName}, #{backupPath}, #{backupSize}, #{backupType},
+                    #{operatorId}, #{backupTime}, #{restoreTime}, #{remark}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM data_backup WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM data_backup
+        ORDER BY backup_time DESC
+    </select>
+
+    <select id="selectByOperatorId" resultMap="BaseResultMap">
+        SELECT * FROM data_backup
+        WHERE operator_id = #{operatorId}
+        ORDER BY backup_time DESC
+    </select>
+
+    <select id="selectRecentBackups" resultMap="BaseResultMap">
+        SELECT * FROM data_backup
+        ORDER BY backup_time DESC
+            LIMIT #{limit}
+    </select>
+
+    <update id="updateRestoreTime">
+        UPDATE data_backup
+        SET restore_time = #{restoreTime}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM data_backup WHERE id = #{id}
+    </delete>
+
+</mapper>

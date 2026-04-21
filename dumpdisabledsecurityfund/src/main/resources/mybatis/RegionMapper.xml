@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.RegionMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.Region">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="level" property="level"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="code" property="code"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO region(name, level, parent_id, code)
+        VALUES(#{name}, #{level}, #{parentId}, #{code})
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM region WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM region ORDER BY level, id
+    </select>
+
+    <select id="selectByLevel" resultMap="BaseResultMap">
+        SELECT * FROM region WHERE level = #{level} ORDER BY id
+    </select>
+
+    <select id="selectByParentId" resultMap="BaseResultMap">
+        SELECT * FROM region WHERE parent_id = #{parentId} ORDER BY id
+    </select>
+
+    <select id="selectCityList" resultMap="BaseResultMap">
+        SELECT * FROM region WHERE level = 1 ORDER BY id
+    </select>
+
+    <select id="selectDistrictList" resultMap="BaseResultMap">
+        SELECT * FROM region WHERE level = 2 ORDER BY id
+    </select>
+
+    <select id="selectByName" resultMap="BaseResultMap">
+        SELECT * FROM region WHERE name = #{name}
+    </select>
+
+    <update id="updateById">
+        UPDATE region
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="code != null">code = #{code},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM region WHERE id = #{id}
+    </delete>
+
+</mapper>

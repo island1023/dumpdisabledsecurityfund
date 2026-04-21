@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.PaymentRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.PaymentRecord">
+        <id column="id" property="id"/>
+        <result column="payable_id" property="payableId"/>
+        <result column="actual_amount" property="actualAmount"/>
+        <result column="payment_date" property="paymentDate"/>
+        <result column="voucher_no" property="voucherNo"/>
+        <result column="remark" property="remark"/>
+        <result column="source" property="source"/>
+        <result column="confirm_user_id" property="confirmUserId"/>
+        <result column="status" property="status"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payment_record(
+            payable_id, actual_amount, payment_date, voucher_no, remark, source,
+            confirm_user_id, status
+        ) VALUES(
+                    #{payableId}, #{actualAmount}, #{paymentDate}, #{voucherNo}, #{remark}, #{source},
+                    #{confirmUserId}, #{status}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM payment_record WHERE id = #{id}
+    </select>
+
+    <select id="selectByPayableId" resultMap="BaseResultMap">
+        SELECT * FROM payment_record
+        WHERE payable_id = #{payableId}
+        ORDER BY payment_date DESC
+    </select>
+
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM payment_record
+        WHERE status = #{status}
+        ORDER BY payment_date DESC
+    </select>
+
+    <select id="sumActualAmountByYear" resultType="java.lang.Double">
+        SELECT IFNULL(SUM(pr.actual_amount), 0)
+        FROM payment_record pr
+                 INNER JOIN payable_amount pa ON pr.payable_id = pa.id
+        WHERE pa.year = #{year}
+          AND pr.status = 1
+    </select>
+
+    <update id="updateById">
+        UPDATE payment_record
+        <set>
+            <if test="actualAmount != null">actual_amount = #{actualAmount},</if>
+            <if test="paymentDate != null">payment_date = #{paymentDate},</if>
+            <if test="source != null">source = #{source},</if>
+            <if test="confirmUserId != null">confirm_user_id = #{confirmUserId},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE payment_record
+        SET status = #{status},
+            confirm_user_id = #{confirmUserId}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM payment_record WHERE id = #{id}
+    </delete>
+
+</mapper>
