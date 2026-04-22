@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.CalculationRuleMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.CalculationRule">
+        <id column="id" property="id"/>
+        <result column="rule_name" property="ruleName"/>
+        <result column="apply_year" property="applyYear"/>
+        <result column="required_ratio" property="requiredRatio"/>
+        <result column="formula_json" property="formulaJson"/>
+        <result column="is_active" property="isActive"/>
+        <result column="effective_time" property="effectiveTime"/>
+        <result column="expire_time" property="expireTime"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO calculation_rule(
+            rule_name, apply_year, required_ratio, formula_json,
+            is_active, effective_time, expire_time, create_time, update_time
+        ) VALUES(
+                    #{ruleName}, #{applyYear}, #{requiredRatio}, #{formulaJson},
+                    #{isActive}, #{effectiveTime}, #{expireTime}, #{createTime}, #{updateTime}
+                )
+    </insert>
+
+    <update id="updateById">
+        UPDATE calculation_rule
+        <set>
+            <if test="ruleName != null">rule_name = #{ruleName},</if>
+            <if test="applyYear != null">apply_year = #{applyYear},</if>
+            <if test="requiredRatio != null">required_ratio = #{requiredRatio},</if>
+            <if test="formulaJson != null">formula_json = #{formulaJson},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            <if test="effectiveTime != null">effective_time = #{effectiveTime},</if>
+            <if test="expireTime != null">expire_time = #{expireTime},</if>
+            update_time = #{updateTime}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM calculation_rule WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM calculation_rule WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM calculation_rule ORDER BY apply_year DESC
+    </select>
+
+    <select id="selectActiveByYear" resultMap="BaseResultMap">
+        SELECT * FROM calculation_rule
+        WHERE apply_year = #{year} AND is_active = 1
+            LIMIT 1
+    </select>
+
+    <select id="selectActiveRatioByYear" resultType="java.lang.Double">
+        SELECT required_ratio FROM calculation_rule
+        WHERE apply_year = #{year} AND is_active = 1
+            LIMIT 1
+    </select>
+
+    <update id="deactivateByYear">
+        UPDATE calculation_rule
+        SET is_active = 0, update_time = NOW()
+        WHERE apply_year = #{year}
+    </update>
+
+    <select id="selectByYearRange" resultMap="BaseResultMap">
+        SELECT * FROM calculation_rule
+        WHERE apply_year BETWEEN #{startYear} AND #{endYear}
+        ORDER BY apply_year DESC
+    </select>
+
+</mapper>

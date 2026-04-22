@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.DisabledAuditMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.DisabledAudit">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="year" property="year"/>
+        <result column="employee_name" property="employeeName"/>
+        <result column="id_card" property="idCard"/>
+        <result column="audit_status" property="auditStatus"/>
+        <result column="auditor_id" property="auditorId"/>
+        <result column="audit_time" property="auditTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO disabled_audit(
+            company_id, year, employee_name, id_card,
+            audit_status, auditor_id, audit_time
+        ) VALUES(
+                    #{companyId}, #{year}, #{employeeName}, #{idCard},
+                    #{auditStatus}, #{auditorId}, #{auditTime}
+                )
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM disabled_audit WHERE id = #{id}
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM disabled_audit
+        WHERE company_id = #{companyId}
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByCompanyIdAndYear" resultMap="BaseResultMap">
+        SELECT * FROM disabled_audit
+        WHERE company_id = #{companyId} AND year = #{year}
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectByAuditStatus" resultMap="BaseResultMap">
+        SELECT * FROM disabled_audit
+        WHERE audit_status = #{auditStatus}
+        ORDER BY audit_time DESC
+    </select>
+
+    <select id="selectByIdCard" resultMap="BaseResultMap">
+        SELECT * FROM disabled_audit WHERE id_card = #{idCard}
+    </select>
+
+    <update id="updateById">
+        UPDATE disabled_audit
+        <set>
+            <if test="auditStatus != null">audit_status = #{auditStatus},</if>
+            <if test="auditorId != null">auditor_id = #{auditorId},</if>
+            <if test="auditTime != null">audit_time = #{auditTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatusById">
+        UPDATE disabled_audit
+        SET audit_status = #{status},
+            auditor_id = #{auditorId},
+            audit_time = #{auditTime}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM disabled_audit WHERE id = #{id}
+    </delete>
+
+</mapper>

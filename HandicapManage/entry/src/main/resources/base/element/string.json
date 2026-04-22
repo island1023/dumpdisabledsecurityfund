@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "label"
+    },
+    {
+      "name": "read_media_reason",
+      "value": "需要读取文件权限以选择Excel文件进行导入"
+    },
+    {
+      "name": "write_media_reason",
+      "value": "需要写入文件权限以保存导入结果"
+    }
+  ]
+}

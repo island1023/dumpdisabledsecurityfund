@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.ReductionApplicationMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.ReductionApplication">
+        <id column="id" property="id"/>
+        <result column="company_id" property="companyId"/>
+        <result column="company_name" property="companyName"/>
+        <result column="reduction_type" property="reductionType"/>
+        <result column="apply_year" property="applyYear"/>
+        <result column="apply_amount" property="applyAmount"/>
+        <result column="apply_reason" property="applyReason"/>
+        <result column="attachment" property="attachment"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM reduction_application WHERE id = #{id}
+    </select>
+
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM reduction_application WHERE status = #{status} ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByCompanyId" resultMap="BaseResultMap">
+        SELECT * FROM reduction_application WHERE company_id = #{companyId} ORDER BY create_time DESC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO reduction_application(
+            company_id, company_name, reduction_type, apply_year, apply_amount,
+            apply_reason, attachment, status, create_time, update_time
+        ) VALUES(
+            #{companyId}, #{companyName}, #{reductionType}, #{applyYear}, #{applyAmount},
+            #{applyReason}, #{attachment}, #{status}, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateById">
+        UPDATE reduction_application
+        <set>
+            <if test="companyId != null">company_id = #{companyId},</if>
+            <if test="companyName != null">company_name = #{companyName},</if>
+            <if test="reductionType != null">reduction_type = #{reductionType},</if>
+            <if test="applyYear != null">apply_year = #{applyYear},</if>
+            <if test="applyAmount != null">apply_amount = #{applyAmount},</if>
+            <if test="applyReason != null">apply_reason = #{applyReason},</if>
+            <if test="attachment != null">attachment = #{attachment},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM reduction_application WHERE id = #{id}
+    </delete>
+
+</mapper>
