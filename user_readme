@@ -1,0 +1,18 @@
+模拟器版本配置是5.1.0，可能需要修改版本
+
+数据库增加了一个表
+
+disabled.xlsl用于全体职工批量上传
+user.xlsl用于批量上传用户信息
+disabled.jpg用于残疾人证上传
+
+新增了残疾人证预览page
+
+主要修改  httputil.ets 
+          unithomepage,ets
+          unitservice.ets
+          systemuserservice.ets
+          等
+
+图片需要拖入导入之后，在模拟器存入图库
+excel直接拖入导入
