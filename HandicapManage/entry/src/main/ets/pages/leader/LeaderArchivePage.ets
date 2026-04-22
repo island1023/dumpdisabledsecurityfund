@@ -1,166 +1,98 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
+import {
+  LeaderService,
+  LeaderArchiveListItem,
+  LeaderArchiveDetail,
+  LeaderPaymentArchiveRow,
+  LeaderReliefArchiveRow
+} from '../../services/LeaderService';
+import { promptAction } from '@kit.ArkUI';
 
-// 单位基本信息接口
-interface UnitBasicInfo {
-  id: string;
-  companyName: string;
-  creditCode: string; // 统一社会信用代码
-  legalPerson: string; // 法定代表人
-  registerAddress: string; // 注册地
-  establishDate: string; // 成立日期
-  phone: string; // 联系电话
-  employeeCount: number; // 在职职工数
-  disabledCount: number; // 残疾职工数
-  collectionYear: string; // 征收年度
-  district: string; // 所属区
-}
-
-// 历年缴纳记录
-interface PaymentRecord {
-  year: string;
-  payableAmount: number; // 应缴金额
-  paidAmount: number; // 实缴金额
-  status: string; // '已缴' | '未缴' | '部分缴纳'
-  payDate?: string; // 缴纳日期
-}
-
-// 减免缓状态
-interface ReliefStatus {
-  type: string; // '减免' | '缓缴' | '无'
-  reason: string; // 原因
-  startDate: string; // 开始日期
-  endDate: string; // 结束日期
-  amount: number; // 减免/缓缴金额
-  status: string; // '审批中' | '已通过' | '已拒绝'
-}
+type UnitBasicInfo = LeaderArchiveListItem;
 
 // 弹窗类型枚举
 enum ArchiveSheetType {
   NONE,
-  PAYMENT_RECORDS,
-  RELIEF_STATUS
+  PAYMENT_RECORDS
 }
 
 @Component
 export struct LeaderArchivePage {
+  @Prop @Watch('onScopeChanged') selectedRegionId: number = 0;
   @State searchKeyword: string = '';
   @State selectedDistrict: string = 'all';
   @State isSheetShow: boolean = false;
   @State activeSheet: ArchiveSheetType = ArchiveSheetType.NONE;
   @State selectedUnit: UnitBasicInfo | null = null;
+  @State unitList: UnitBasicInfo[] = [];
+  @State listLoading: boolean = false;
+  @State detailLoading: boolean = false;
+  @State loadedDetail: LeaderArchiveDetail | null = null;
 
-  // 模拟单位数据
-  @State unitList: UnitBasicInfo[] = [
-    {
-      id: '1',
-      companyName: '成都科技发展有限公司',
-      creditCode: '91440101MA5ABCD123',
-      legalPerson: '张三',
-      registerAddress: '成都市锦江区春熙路XX号',
-      establishDate: '2018-05-15',
-      phone: '020-12345678',
-      employeeCount: 150,
-      disabledCount: 3,
-      collectionYear: '2025年',
-      district: '锦江区'
-    },
-    {
-      id: '2',
-      companyName: '珠江商贸集团',
-      creditCode: '91440101MA5EFGH456',
-      legalPerson: '李四',
-      registerAddress: '成都市青羊区顺城大街XX号',
-      establishDate: '2015-03-20',
-      phone: '020-87654321',
-      employeeCount: 200,
-      disabledCount: 5,
-      collectionYear: '2025年',
-      district: '青羊区'
-    },
-    {
-      id: '3',
-      companyName: '白云制造有限公司',
-      creditCode: '91440101MA5IJKL789',
-      legalPerson: '王五',
-      registerAddress: '成都市金牛区一环路XX号',
-      establishDate: '2010-08-10',
-      phone: '020-11223344',
-      employeeCount: 300,
-      disabledCount: 7,
-      collectionYear: '2025年',
-      district: '金牛区'
-    },
-    {
-      id: '4',
-      companyName: '天河建设集团',
-      creditCode: '91440101MA5MNOP012',
-      legalPerson: '赵六',
-      registerAddress: '成都市锦江区东大街XX号',
-      establishDate: '2008-12-01',
-      phone: '020-55667788',
-      employeeCount: 400,
-      disabledCount: 6,
-      collectionYear: '2025年',
-      district: '锦江区'
-    },
-    {
-      id: '5',
-      companyName: '黄埔实业有限公司',
-      creditCode: '91440101MA5QRST345',
-      legalPerson: '孙七',
-      registerAddress: '成都市武侯区人民南路XX号',
-      establishDate: '2012-07-20',
-      phone: '020-33445566',
-      employeeCount: 250,
-      disabledCount: 4,
-      collectionYear: '2025年',
-      district: '武侯区'
+  aboutToAppear(): void {
+    this.loadCompanyList('');
+  }
+
+  private onScopeChanged(): void {
+    void this.loadCompanyList(this.searchKeyword);
+  }
+
+  async loadCompanyList(keyword: string): Promise<void> {
+    this.listLoading = true;
+    try {
+      this.unitList = await LeaderService.getArchiveCompanies(keyword, 1, 100);
+    } catch (e) {
+      promptAction.showToast({ message: (e as Error).message || '加载失败' });
+      this.unitList = [];
+    } finally {
+      this.listLoading = false;
     }
-  ];
-
-  // 模拟历年缴纳记录
-  private getPaymentRecords(unitId: string): PaymentRecord[] {
-    return [
-      { year: '2025年', payableAmount: 180000, paidAmount: 180000, status: '已缴', payDate: '2025-04-15' },
-      { year: '2024年', payableAmount: 175000, paidAmount: 175000, status: '已缴', payDate: '2024-04-10' },
-      { year: '2023年', payableAmount: 160000, paidAmount: 160000, status: '已缴', payDate: '2023-04-12' },
-      { year: '2022年', payableAmount: 150000, paidAmount: 150000, status: '已缴', payDate: '2022-04-08' }
-    ];
   }
 
-  // 模拟减免缓状态
-  private getReliefStatus(unitId: string): ReliefStatus[] {
-    return [
-      {
-        type: '减免',
-        reason: '企业吸纳残疾人就业比例达到规定标准',
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
-        amount: 20000,
-        status: '已通过'
-      },
-      {
-        type: '缓缴',
-        reason: '企业经营困难，申请缓缴',
-        startDate: '2023-06-01',
-        endDate: '2023-12-31',
-        amount: 50000,
-        status: '已通过'
-      }
-    ];
-  }
-
-  // 打开弹窗
-  private openSheet(type: ArchiveSheetType) {
-    this.activeSheet = type;
+  private openArchiveDetail(unit: UnitBasicInfo): void {
+    this.selectedUnit = unit;
+    this.loadedDetail = null;
+    this.activeSheet = ArchiveSheetType.PAYMENT_RECORDS;
     this.isSheetShow = true;
+    this.detailLoading = true;
+    void this.fetchArchiveDetail(unit.id);
+  }
+
+  private async fetchArchiveDetail(companyId: string): Promise<void> {
+    try {
+      this.loadedDetail = await LeaderService.getArchiveDetail(companyId);
+    } catch (e) {
+      promptAction.showToast({ message: (e as Error).message || '加载详情失败' });
+    } finally {
+      this.detailLoading = false;
+    }
   }
 
   // 获取筛选后的列表
   private getFilteredList(): UnitBasicInfo[] {
     let list = this.unitList;
 
-    if (this.selectedDistrict !== 'all') {
+    if (this.selectedRegionId > 0) {
+      const regionNameMap: Record<number, string> = {
+        1: '锦江区',
+        2: '青羊区',
+        3: '金牛区',
+        4: '武侯区',
+        5: '成华区',
+        6: '龙泉驿区',
+        7: '青白江区',
+        8: '新都区',
+        9: '温江区',
+        10: '双流区',
+        11: '郫都区',
+        12: '新津区',
+        13: '金堂县'
+      };
+      const targetDistrict = regionNameMap[this.selectedRegionId] || '';
+      if (targetDistrict) {
+        list = list.filter(unit => unit.district === targetDistrict);
+      }
+    } else if (this.selectedDistrict !== 'all') {
       list = list.filter(unit => unit.district === this.selectedDistrict);
     }
 
@@ -177,6 +109,8 @@ export struct LeaderArchivePage {
       case '已缴':
       case '已通过':
         return ColorConstants.SUCCESS;
+      case '部分缴纳':
+        return ColorConstants.WARNING;
       case '未缴':
       case '审批中':
         return ColorConstants.WARNING;
@@ -193,6 +127,8 @@ export struct LeaderArchivePage {
       case '已缴':
       case '已通过':
         return 'rgba(0, 158, 95, 0.1)';
+      case '部分缴纳':
+        return 'rgba(245, 158, 11, 0.1)';
       case '未缴':
       case '审批中':
         return 'rgba(245, 158, 11, 0.1)';
@@ -227,13 +163,31 @@ export struct LeaderArchivePage {
           .backgroundColor(ColorConstants.PRIMARY)
           .borderRadius(8)
           .margin({ left: 12 })
+          .onClick(() => {
+            this.loadCompanyList(this.searchKeyword);
+          })
       }
       .width('100%')
       .margin({ bottom: 16 })
 
+      if (this.listLoading) {
+        Text('加载中…')
+          .fontSize(14)
+          .fontColor(ColorConstants.TEXT_SECONDARY)
+          .width('100%')
+          .margin({ bottom: 8 })
+      }
+
       // 列表 - 可滚动
       Scroll() {
         Column() {
+          if (!this.listLoading && this.getFilteredList().length === 0) {
+            Text('暂无单位数据')
+              .fontSize(14)
+              .fontColor(ColorConstants.TEXT_SECONDARY)
+              .width('100%')
+              .padding({ top: 24 })
+          }
           ForEach(this.getFilteredList(), (unit: UnitBasicInfo) => {
             Column() {
               // 单位名称和所属区
@@ -257,8 +211,7 @@ export struct LeaderArchivePage {
                   .fontColor(ColorConstants.PRIMARY)
                   .fontWeight(FontWeight.Medium)
                   .onClick(() => {
-                    this.selectedUnit = unit;
-                    this.openSheet(ArchiveSheetType.PAYMENT_RECORDS);
+                    this.openArchiveDetail(unit);
                   })
               }
               .width('100%')
@@ -338,6 +291,7 @@ export struct LeaderArchivePage {
         this.isSheetShow = false;
         this.activeSheet = ArchiveSheetType.NONE;
         this.selectedUnit = null;
+        this.loadedDetail = null;
       }
     })
   }
@@ -347,11 +301,23 @@ export struct LeaderArchivePage {
   sheetBuilder() {
     Column() {
       if (this.activeSheet === ArchiveSheetType.PAYMENT_RECORDS) {
-        Scroll() {
-          this.buildArchiveDetail()
+        if (this.detailLoading) {
+          Text('加载档案详情…')
+            .fontSize(15)
+            .fontColor(ColorConstants.TEXT_SECONDARY)
+            .padding({ top: 24, bottom: 24 })
+        } else if (this.loadedDetail) {
+          Scroll() {
+            this.buildArchiveDetailBlock(this.loadedDetail)
+          }
+          .layoutWeight(1)
+          .scrollBar(BarState.Auto)
+        } else {
+          Text('暂无详情')
+            .fontSize(14)
+            .fontColor(ColorConstants.TEXT_SECONDARY)
+            .padding({ top: 24 })
         }
-        .layoutWeight(1)
-        .scrollBar(BarState.Auto)
       }
     }
     .width('100%')
@@ -359,7 +325,7 @@ export struct LeaderArchivePage {
   }
 
   @Builder
-  buildArchiveDetail() {
+  buildArchiveDetailBlock(detail: LeaderArchiveDetail) {
     Column() {
       // 单位基本信息
       Text('单位基本信息')
@@ -374,7 +340,7 @@ export struct LeaderArchivePage {
           Text('单位名称：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.companyName)
+          Text(detail.companyName)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -385,7 +351,7 @@ export struct LeaderArchivePage {
           Text('统一社会信用代码：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.creditCode)
+          Text(detail.creditCode)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -396,7 +362,29 @@ export struct LeaderArchivePage {
           Text('法定代表人：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.legalPerson)
+          Text(detail.legalPerson)
+            .fontSize(14)
+            .fontColor(ColorConstants.TEXT_TITLE)
+        }
+        .width('100%')
+        .margin({ bottom: 8 })
+
+        Row() {
+          Text('所属区县：')
+            .fontSize(14)
+            .fontColor(ColorConstants.TEXT_SECONDARY)
+          Text(detail.district || '—')
+            .fontSize(14)
+            .fontColor(ColorConstants.TEXT_TITLE)
+        }
+        .width('100%')
+        .margin({ bottom: 8 })
+
+        Row() {
+          Text('行业：')
+            .fontSize(14)
+            .fontColor(ColorConstants.TEXT_SECONDARY)
+          Text(detail.industry || '—')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -407,7 +395,7 @@ export struct LeaderArchivePage {
           Text('注册地：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.registerAddress)
+          Text(detail.registerAddress)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -418,7 +406,7 @@ export struct LeaderArchivePage {
           Text('成立日期：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.establishDate)
+          Text(detail.establishDate)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -429,7 +417,7 @@ export struct LeaderArchivePage {
           Text('联系电话：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.phone)
+          Text(detail.phone)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -440,7 +428,7 @@ export struct LeaderArchivePage {
           Text('在职职工数：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(`${this.selectedUnit!.employeeCount}人`)
+          Text(`${detail.employeeCount}人`)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -451,7 +439,7 @@ export struct LeaderArchivePage {
           Text('残疾职工数：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(`${this.selectedUnit!.disabledCount}人`)
+          Text(`${detail.disabledCount}人`)
             .fontSize(14)
             .fontColor(ColorConstants.PRIMARY)
         }
@@ -462,7 +450,7 @@ export struct LeaderArchivePage {
           Text('征收年度：')
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_SECONDARY)
-          Text(this.selectedUnit!.collectionYear)
+          Text(detail.collectionYear)
             .fontSize(14)
             .fontColor(ColorConstants.TEXT_TITLE)
         }
@@ -483,7 +471,7 @@ export struct LeaderArchivePage {
         .margin({ bottom: 16 })
 
       Column() {
-        ForEach(this.getPaymentRecords(this.selectedUnit!.id), (record: PaymentRecord) => {
+        ForEach(detail.paymentRecords, (record: LeaderPaymentArchiveRow) => {
           Row() {
             Column() {
               Text(record.year)
@@ -533,7 +521,7 @@ export struct LeaderArchivePage {
         .margin({ bottom: 16 })
 
       Column() {
-        ForEach(this.getReliefStatus(this.selectedUnit!.id), (relief: ReliefStatus) => {
+        ForEach(detail.reliefStatuses, (relief: LeaderReliefArchiveRow) => {
           Column() {
             Row() {
               Text(relief.type)

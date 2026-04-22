@@ -20,6 +20,11 @@ interface HttpRequestConfig {
   header?: Record<string, string>;
 }
 
+export class DownloadProbeResult {
+  ok: boolean = false;
+  message: string = '';
+}
+
 /**
  * API基础配置 - 根据实际情况修改
  * 10.0.2.2 用于鸿蒙模拟器访问宿主机
@@ -32,7 +37,7 @@ interface HttpRequestConfig {
  * - 如果使用真机：使用电脑的局域网IP
  */
 // const BASE_URL = 'http://10.0.2.2:8080'; // 模拟器访问宿主机
-const BASE_URL = 'http://localhost:8080'; // 预览器调试用
+const BASE_URL = 'http://10.0.2.2:8080'; // 预览器调试用
 
 /**
  * 获取Token
@@ -78,6 +83,104 @@ function buildUrl(url: string, params?: Record<string, string | number | boolean
   }
   
   return fullUrl;
+}
+
+export function buildAuthorizedGetUrl(url: string, params?: Record<string, string | number | boolean>): string {
+  const mergedParams: Record<string, string | number | boolean> = {};
+  if (params) {
+    const entries = Object.entries(params);
+    for (let i = 0; i < entries.length; i++) {
+      mergedParams[entries[i][0]] = entries[i][1];
+    }
+  }
+  const token = getToken();
+  if (token && shouldAttachToken(url)) {
+    mergedParams['token'] = token;
+  }
+  return buildUrl(url, mergedParams);
+}
+
+export function buildAuthorizedGetUrlWithQuery(urlWithQuery: string): string {
+  let fullUrl = `${BASE_URL}${urlWithQuery}`;
+  const token = getToken();
+  if (token && shouldAttachToken(urlWithQuery)) {
+    const separator = fullUrl.includes('?') ? '&' : '?';
+    fullUrl += `${separator}token=${encodeURIComponent(token)}`;
+  }
+  return fullUrl;
+}
+
+function looksLikePdfContent(raw: string): boolean {
+  if (!raw || raw.length === 0) {
+    return false;
+  }
+  return raw.startsWith('%PDF-') || raw.includes('%PDF-');
+}
+
+function looksLikeZipContent(raw: string): boolean {
+  if (!raw || raw.length === 0) {
+    return false;
+  }
+  return raw.startsWith('PK') || raw.includes('PK');
+}
+
+function resolveProbeErrorMessage(raw: string, defaultMessage: string): string {
+  if (!raw || raw.trim().length === 0) {
+    return defaultMessage;
+  }
+  try {
+    const obj = JSON.parse(raw) as Record<string, Object>;
+    const messageValue = obj['message'];
+    if (typeof messageValue === 'string' && messageValue.trim().length > 0) {
+      return messageValue;
+    }
+  } catch (e) {
+    // ignore parse errors, fallback to default message
+  }
+  return defaultMessage;
+}
+
+export async function probeDownloadUrl(urlWithQuery: string, expectZip: boolean = false): Promise<DownloadProbeResult> {
+  const result = new DownloadProbeResult();
+  const httpRequest = http.createHttp();
+  try {
+    const fullUrl = buildAuthorizedGetUrlWithQuery(urlWithQuery);
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await httpRequest.request(fullUrl, {
+      method: http.RequestMethod.GET,
+      header: headers,
+      expectDataType: http.HttpDataType.STRING,
+      connectTimeout: 15000,
+      readTimeout: 15000
+    });
+    const body = String(response.result ?? '');
+    if (response.responseCode < 200 || response.responseCode >= 300) {
+      result.ok = false;
+      result.message = resolveProbeErrorMessage(body, `下载失败（HTTP ${response.responseCode}）`);
+      return result;
+    }
+
+    const contentValid = expectZip ? looksLikeZipContent(body) : looksLikePdfContent(body);
+    if (contentValid) {
+      result.ok = true;
+      result.message = '';
+      return result;
+    }
+
+    result.ok = false;
+    result.message = resolveProbeErrorMessage(body, expectZip ? '下载内容不是有效ZIP文件' : '下载内容不是有效PDF文件');
+    return result;
+  } catch (error) {
+    result.ok = false;
+    result.message = error instanceof Error ? `下载校验失败: ${error.message}` : '下载校验失败';
+    return result;
+  } finally {
+    httpRequest.destroy();
+  }
 }
 
 /**

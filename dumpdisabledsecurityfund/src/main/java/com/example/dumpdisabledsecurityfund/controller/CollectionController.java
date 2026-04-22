@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 /**
  * 征收核算控制器 - 适配前端需求
@@ -25,8 +26,10 @@ public class CollectionController {
     @RequirePermission(roles = {"admin_system", "admin_city", "admin_district", "company_user"})
     public Result<?> getStatistics(
             @Parameter(description = "年度", example = "2025")
-            @RequestParam(required = false) Integer year) {
-        return collectionService.getStatistics(year);
+            @RequestParam(required = false) Integer year,
+            @Parameter(description = "区县ID（市级管理员可选）", example = "1")
+            @RequestParam(required = false) Long regionId) {
+        return collectionService.getStatistics(year, regionId);
     }
 
     @Operation(summary = "获取征收列表", description = "获取征收记录列表，支持分页和筛选")
@@ -42,22 +45,22 @@ public class CollectionController {
             @Parameter(description = "页码，默认1", example = "1")
             @RequestParam(required = false, defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页数量，默认20", example = "20")
-            @RequestParam(required = false, defaultValue = "20") Integer pageSize) {
-        return collectionService.getList(year, status, keyword, pageNum, pageSize);
+            @RequestParam(required = false, defaultValue = "20") Integer pageSize,
+            @Parameter(description = "区县ID（市级管理员可选）", example = "1")
+            @RequestParam(required = false) Long regionId) {
+        return collectionService.getList(year, status, keyword, pageNum, pageSize, regionId);
     }
 
     @Operation(summary = "缴款核销", description = "对未缴或部分缴纳的记录进行核销")
     @PostMapping("/verify")
     @RequirePermission(roles = {"admin_system", "admin_city", "admin_district"})
     public Result<?> verifyPayment(
-            @Parameter(description = "征收记录ID", required = true)
-            @RequestParam Long collectionId,
-            @Parameter(description = "核销金额", required = true)
-            @RequestParam Double amount,
-            @Parameter(description = "凭证号")
-            @RequestParam(required = false) String voucherNo,
-            @Parameter(description = "核销备注")
-            @RequestParam(required = false) String remark) {
+            @Parameter(description = "核销参数", required = true)
+            @RequestBody Map<String, Object> request) {
+        Long collectionId = request.get("collectionId") == null ? null : Long.valueOf(String.valueOf(request.get("collectionId")));
+        Double amount = request.get("amount") == null ? null : Double.valueOf(String.valueOf(request.get("amount")));
+        String voucherNo = request.get("voucherNo") == null ? null : String.valueOf(request.get("voucherNo"));
+        String remark = request.get("remark") == null ? null : String.valueOf(request.get("remark"));
         return collectionService.verifyPayment(collectionId, amount, voucherNo, remark);
     }
 

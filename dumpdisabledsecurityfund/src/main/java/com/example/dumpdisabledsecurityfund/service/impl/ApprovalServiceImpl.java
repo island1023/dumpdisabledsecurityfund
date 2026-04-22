@@ -1,19 +1,28 @@
 package com.example.dumpdisabledsecurityfund.service.impl;
 
 import com.example.dumpdisabledsecurityfund.common.Result;
-import com.example.dumpdisabledsecurityfund.entity.DisabledEmployee;
-import com.example.dumpdisabledsecurityfund.entity.ReductionApplication;
-import com.example.dumpdisabledsecurityfund.mapper.DisabledEmployeeMapper;
-import com.example.dumpdisabledsecurityfund.mapper.ReductionApplicationMapper;
+import com.example.dumpdisabledsecurityfund.entity.Company;
+import com.example.dumpdisabledsecurityfund.entity.CompanyReduction;
+import com.example.dumpdisabledsecurityfund.entity.DisabledAudit;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyMapper;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyReductionMapper;
+import com.example.dumpdisabledsecurityfund.mapper.DisabledAuditMapper;
 import com.example.dumpdisabledsecurityfund.service.ApprovalService;
+import com.example.dumpdisabledsecurityfund.service.DisabledAuditService;
+import com.example.dumpdisabledsecurityfund.service.ReductionService;
+import com.example.dumpdisabledsecurityfund.util.DateUtil;
 import com.example.dumpdisabledsecurityfund.vo.ApprovalVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 审批服务实现类
@@ -22,53 +31,84 @@ import java.util.Map;
 public class ApprovalServiceImpl implements ApprovalService {
 
     @Resource
-    private DisabledEmployeeMapper disabledEmployeeMapper;
+    private DisabledAuditMapper disabledAuditMapper;
 
     @Resource
-    private ReductionApplicationMapper reductionApplicationMapper;
+    private CompanyReductionMapper companyReductionMapper;
+
+    @Resource
+    private CompanyMapper companyMapper;
+
+    @Resource
+    private DisabledAuditService disabledAuditService;
+
+    @Resource
+    private ReductionService reductionService;
 
     @Override
-    public Result<?> getPendingList(Integer page, Integer pageSize, String type) {
+    public Result<?> getPendingList(Integer page, Integer pageSize, String type, Long regionId) {
+        if (page == null || page < 1) page = 1;
+        if (pageSize == null || pageSize < 1) pageSize = 20;
+        String queryType = type == null ? "all" : type;
+
+        boolean districtScope = isDistrictAdmin();
+        Long targetRegionId = districtScope ? getCurrentRegionId() : regionId;
         List<ApprovalVO> list = new ArrayList<>();
-        
-        // 获取待审核的残疾职工申请
-        if ("all".equals(type) || "disabled".equals(type)) {
-            List<DisabledEmployee> disabledList = disabledEmployeeMapper.selectByStatus(0);
-            for (DisabledEmployee emp : disabledList) {
+
+        if ("all".equals(queryType) || "disabled".equals(queryType)) {
+            List<DisabledAudit> disabledList = disabledAuditMapper.selectByAuditStatus(0);
+            for (int i = 0; i < disabledList.size(); i++) {
+                DisabledAudit audit = disabledList.get(i);
+                Company company = companyMapper.selectById(audit.getCompanyId());
+                if (!canAccessCompany(company, districtScope, targetRegionId)) {
+                    continue;
+                }
                 ApprovalVO vo = new ApprovalVO();
-                vo.setId(emp.getId());
-                vo.setCompanyName(emp.getCompanyName() != null ? emp.getCompanyName() : "未知单位");
+                vo.setId("D_" + audit.getId());
+                vo.setCompanyName(company == null ? "未知单位" : company.getName());
                 vo.setApplyType("残疾职工");
-                vo.setApplyDate(String.valueOf(emp.getYear()));
+                vo.setApplyDate(audit.getAuditTime());
                 vo.setStatus("待审批");
-                vo.setEmployeeName(emp.getName());
-                vo.setIdCard(maskIdCard(emp.getIdCard()));
-                vo.setDisabilityType(emp.getDisabilityType());
-                vo.setDisabilityLevel(emp.getDisabilityLevel());
-                vo.setHireDate(emp.getHireDate());
+                vo.setEmployeeName(audit.getEmployeeName());
+                vo.setIdCard(maskIdCard(audit.getIdCard()));
+                vo.setDisabilityType(audit.getDisabilityType());
+                vo.setDisabilityLevel(audit.getDisabilityLevel());
+                vo.setHireDate(audit.getHireDate());
+                vo.setAttachmentName(audit.getAttachment());
+                vo.setDescription("新增残疾职工申请");
                 list.add(vo);
             }
         }
-        
-        // 获取待审核的减免缓申请
-        if ("all".equals(type) || "reduction".equals(type)) {
-            List<ReductionApplication> reductionList = reductionApplicationMapper.selectByStatus(0);
-            for (ReductionApplication app : reductionList) {
+
+        if ("all".equals(queryType) || "reduction".equals(queryType)) {
+            List<CompanyReduction> reductionList = companyReductionMapper.selectByAuditStatus(0);
+            for (int i = 0; i < reductionList.size(); i++) {
+                CompanyReduction app = reductionList.get(i);
+                Company company = companyMapper.selectById(app.getCompanyId());
+                if (!canAccessCompany(company, districtScope, targetRegionId)) {
+                    continue;
+                }
                 ApprovalVO vo = new ApprovalVO();
-                vo.setId(app.getId());
-                vo.setCompanyName(app.getCompanyName() != null ? app.getCompanyName() : "未知单位");
+                vo.setId("R_" + app.getId());
+                vo.setCompanyName(company == null ? "未知单位" : company.getName());
                 vo.setApplyType("减免缓");
-                vo.setApplyDate(String.valueOf(app.getApplyYear()));
+                vo.setApplyDate(app.getCreateTime());
                 vo.setStatus("待审批");
-                vo.setReductionType(app.getReductionType());
-                vo.setApplyYear(String.valueOf(app.getApplyYear()));
-                vo.setApplyAmount(String.valueOf(app.getApplyAmount()));
-                vo.setApplyReason(app.getApplyReason());
+                vo.setReductionType(getReductionTypeName(app.getApplyType()));
+                vo.setApplyYear(String.valueOf(app.getYear()));
+                vo.setApplyAmount(String.valueOf(app.getApplyAmount() == null ? 0 : app.getApplyAmount()));
+                vo.setApplyReason(app.getReason());
+                vo.setReductionAttachment(app.getAttachment());
+                vo.setDescription(app.getReason());
+                vo.setAmount("¥" + String.format("%,.2f", app.getApplyAmount() == null ? 0D : app.getApplyAmount()));
                 list.add(vo);
             }
         }
-        
-        // 分页处理
+
+        list = list.stream()
+                .sorted((a, b) -> (b.getApplyDate() == null ? "" : b.getApplyDate()).compareTo(a.getApplyDate() == null ? "" : a.getApplyDate()))
+                .collect(Collectors.toList());
+
         int total = list.size();
         int start = (page - 1) * pageSize;
         int end = Math.min(start + pageSize, total);
@@ -81,89 +121,104 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
-    public Result<?> approve(Long approvalId) {
-        // 先尝试更新残疾职工
-        DisabledEmployee disabledEmployee = disabledEmployeeMapper.selectById(approvalId);
-        if (disabledEmployee != null) {
-            disabledEmployee.setStatus(1);
-            disabledEmployeeMapper.updateById(disabledEmployee);
-            return Result.success("审批通过");
+    public Result<?> approve(String approvalId) {
+        if (approvalId == null || approvalId.trim().isEmpty()) {
+            return Result.error("审批ID不能为空");
         }
-        
-        // 再尝试更新减免缓申请
-        ReductionApplication reductionApp = reductionApplicationMapper.selectById(approvalId);
-        if (reductionApp != null) {
-            reductionApp.setStatus(1);
-            reductionApplicationMapper.updateById(reductionApp);
-            return Result.success("审批通过");
+        String id = approvalId.trim();
+        if (id.startsWith("D_")) {
+            return disabledAuditService.audit(parsePrefixedId(id), 1);
         }
-        
-        return Result.error("审批记录不存在");
+        if (id.startsWith("R_")) {
+            return reductionService.audit(parsePrefixedId(id), 1, "审批通过");
+        }
+        return Result.error("审批ID格式错误");
     }
 
     @Override
-    public Result<?> reject(Long approvalId, String reason) {
-        // 先尝试更新残疾职工
-        DisabledEmployee disabledEmployee = disabledEmployeeMapper.selectById(approvalId);
-        if (disabledEmployee != null) {
-            disabledEmployee.setStatus(2);
-            disabledEmployeeMapper.updateById(disabledEmployee);
-            return Result.success("审批已驳回");
+    public Result<?> reject(String approvalId, String reason) {
+        if (approvalId == null || approvalId.trim().isEmpty()) {
+            return Result.error("审批ID不能为空");
         }
-        
-        // 再尝试更新减免缓申请
-        ReductionApplication reductionApp = reductionApplicationMapper.selectById(approvalId);
-        if (reductionApp != null) {
-            reductionApp.setStatus(2);
-            reductionApplicationMapper.updateById(reductionApp);
-            return Result.success("审批已驳回");
+        String rejectReason = (reason == null || reason.trim().isEmpty()) ? "审核不通过" : reason.trim();
+        String id = approvalId.trim();
+        if (id.startsWith("D_")) {
+            return disabledAuditService.audit(parsePrefixedId(id), 2);
         }
-        
-        return Result.error("审批记录不存在");
+        if (id.startsWith("R_")) {
+            return reductionService.audit(parsePrefixedId(id), 2, rejectReason);
+        }
+        return Result.error("审批ID格式错误");
     }
 
     @Override
-    public Result<?> getDetail(Long approvalId) {
-        // 先尝试查询残疾职工
-        DisabledEmployee disabledEmployee = disabledEmployeeMapper.selectById(approvalId);
-        if (disabledEmployee != null) {
+    public Result<?> getDetail(String approvalId) {
+        if (approvalId == null || approvalId.trim().isEmpty()) {
+            return Result.error("审批ID不能为空");
+        }
+        String id = approvalId.trim();
+        if (id.startsWith("D_")) {
+            DisabledAudit audit = disabledAuditMapper.selectById(parsePrefixedId(id));
+            if (audit == null) {
+                return Result.error("审批记录不存在");
+            }
+            Company company = companyMapper.selectById(audit.getCompanyId());
             ApprovalVO vo = new ApprovalVO();
-            vo.setId(disabledEmployee.getId());
-            vo.setCompanyName(disabledEmployee.getCompanyName());
+            vo.setId("D_" + audit.getId());
+            vo.setCompanyName(company == null ? "未知单位" : company.getName());
             vo.setApplyType("残疾职工");
-            vo.setApplyDate(String.valueOf(disabledEmployee.getYear()));
-            vo.setStatus(disabledEmployee.getStatus() == 1 ? "已通过" : disabledEmployee.getStatus() == 2 ? "已驳回" : "待审批");
-            vo.setEmployeeName(disabledEmployee.getName());
-            vo.setIdCard(disabledEmployee.getIdCard());
-            vo.setDisabilityType(disabledEmployee.getDisabilityType());
-            vo.setDisabilityLevel(disabledEmployee.getDisabilityLevel());
-            vo.setHireDate(disabledEmployee.getHireDate());
+            vo.setApplyDate(audit.getAuditTime());
+            vo.setStatus(toStatusName(audit.getAuditStatus()));
+            vo.setEmployeeName(audit.getEmployeeName());
+            vo.setIdCard(maskIdCard(audit.getIdCard()));
+            vo.setDisabilityType(audit.getDisabilityType());
+            vo.setDisabilityLevel(audit.getDisabilityLevel());
+            vo.setHireDate(audit.getHireDate());
+            vo.setAttachmentName(audit.getAttachment());
             return Result.success(vo);
         }
-        
-        // 再尝试查询减免缓申请
-        ReductionApplication reductionApp = reductionApplicationMapper.selectById(approvalId);
-        if (reductionApp != null) {
+        if (id.startsWith("R_")) {
+            CompanyReduction reduction = companyReductionMapper.selectById(parsePrefixedId(id));
+            if (reduction == null) {
+                return Result.error("审批记录不存在");
+            }
+            Company company = companyMapper.selectById(reduction.getCompanyId());
             ApprovalVO vo = new ApprovalVO();
-            vo.setId(reductionApp.getId());
-            vo.setCompanyName(reductionApp.getCompanyName());
+            vo.setId("R_" + reduction.getId());
+            vo.setCompanyName(company == null ? "未知单位" : company.getName());
             vo.setApplyType("减免缓");
-            vo.setApplyDate(String.valueOf(reductionApp.getApplyYear()));
-            vo.setStatus(reductionApp.getStatus() == 1 ? "已通过" : reductionApp.getStatus() == 2 ? "已驳回" : "待审批");
-            vo.setReductionType(reductionApp.getReductionType());
-            vo.setApplyYear(String.valueOf(reductionApp.getApplyYear()));
-            vo.setApplyAmount(String.valueOf(reductionApp.getApplyAmount()));
-            vo.setApplyReason(reductionApp.getApplyReason());
+            vo.setApplyDate(reduction.getCreateTime());
+            vo.setStatus(toStatusName(reduction.getAuditStatus()));
+            vo.setReductionType(getReductionTypeName(reduction.getApplyType()));
+            vo.setApplyYear(String.valueOf(reduction.getYear()));
+            vo.setApplyAmount(String.valueOf(reduction.getApplyAmount() == null ? 0 : reduction.getApplyAmount()));
+            vo.setApplyReason(reduction.getReason());
+            vo.setReductionAttachment(reduction.getAttachment());
             return Result.success(vo);
         }
-        
-        return Result.error("审批记录不存在");
+        return Result.error("审批ID格式错误");
     }
 
     @Override
     public Result<?> getStatistics() {
-        int pendingDisabled = disabledEmployeeMapper.selectByStatus(0).size();
-        int pendingReduction = reductionApplicationMapper.selectByStatus(0).size();
+        Long currentRegionId = getCurrentRegionId();
+        boolean districtScope = isDistrictAdmin();
+        int pendingDisabled = 0;
+        List<DisabledAudit> disabledList = disabledAuditMapper.selectByAuditStatus(0);
+        for (int i = 0; i < disabledList.size(); i++) {
+            Company company = companyMapper.selectById(disabledList.get(i).getCompanyId());
+            if (canAccessCompany(company, districtScope, currentRegionId)) {
+                pendingDisabled++;
+            }
+        }
+        int pendingReduction = 0;
+        List<CompanyReduction> reductions = companyReductionMapper.selectByAuditStatus(0);
+        for (int i = 0; i < reductions.size(); i++) {
+            Company company = companyMapper.selectById(reductions.get(i).getCompanyId());
+            if (canAccessCompany(company, districtScope, currentRegionId)) {
+                pendingReduction++;
+            }
+        }
         
         Map<String, Object> stats = new HashMap<>();
         stats.put("pendingTotal", pendingDisabled + pendingReduction);
@@ -177,5 +232,83 @@ public class ApprovalServiceImpl implements ApprovalService {
             return idCard;
         }
         return idCard.substring(0, 3) + "***********" + idCard.substring(idCard.length() - 4);
+    }
+
+    private Long parsePrefixedId(String id) {
+        String[] parts = id.split("_");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("审批ID格式错误");
+        }
+        return Long.valueOf(parts[1]);
+    }
+
+    private String getReductionTypeName(Integer applyType) {
+        if (applyType == null) return "减";
+        switch (applyType) {
+            case 1: return "减";
+            case 2: return "免";
+            case 3: return "缓";
+            default: return "减";
+        }
+    }
+
+    private String toStatusName(Integer status) {
+        if (status == null || status == 0) return "待审批";
+        if (status == 1) return "已通过";
+        if (status == 2) return "已驳回";
+        return "未知";
+    }
+
+    private boolean canAccessCompany(Company company, boolean districtScope, Long regionId) {
+        if (company == null) {
+            return false;
+        }
+        if (!districtScope && regionId == null) {
+            return true;
+        }
+        if (regionId == null) {
+            return false;
+        }
+        return regionId.equals(company.getRegionId());
+    }
+
+    private boolean isDistrictAdmin() {
+        Map<String, Object> claims = getClaims();
+        if (claims == null) {
+            return false;
+        }
+        Object roleCodesObj = claims.get("roleCodes");
+        if (!(roleCodesObj instanceof List)) {
+            return false;
+        }
+        @SuppressWarnings("unchecked")
+        List<String> roleCodes = (List<String>) roleCodesObj;
+        return roleCodes.contains("admin_district");
+    }
+
+    private Long getCurrentRegionId() {
+        Map<String, Object> claims = getClaims();
+        if (claims == null) {
+            return null;
+        }
+        Object regionIdObj = claims.get("regionId");
+        if (regionIdObj == null) {
+            return null;
+        }
+        return Long.valueOf(regionIdObj.toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getClaims() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return null;
+        }
+        HttpServletRequest request = attributes.getRequest();
+        Object userInfo = request.getAttribute("userInfo");
+        if (!(userInfo instanceof Map)) {
+            return null;
+        }
+        return (Map<String, Object>) userInfo;
     }
 }

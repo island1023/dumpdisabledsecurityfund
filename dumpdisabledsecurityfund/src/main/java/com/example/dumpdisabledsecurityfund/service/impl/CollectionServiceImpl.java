@@ -5,6 +5,7 @@ import com.example.dumpdisabledsecurityfund.entity.Company;
 import com.example.dumpdisabledsecurityfund.entity.PayableAmount;
 import com.example.dumpdisabledsecurityfund.entity.PaymentRecord;
 import com.example.dumpdisabledsecurityfund.mapper.CompanyMapper;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyEmployeeMapper;
 import com.example.dumpdisabledsecurityfund.mapper.PayableAmountMapper;
 import com.example.dumpdisabledsecurityfund.mapper.PaymentRecordMapper;
 import com.example.dumpdisabledsecurityfund.service.CollectionService;
@@ -12,8 +13,11 @@ import com.example.dumpdisabledsecurityfund.util.DateUtil;
 import com.example.dumpdisabledsecurityfund.vo.CollectionStatisticsVO;
 import com.example.dumpdisabledsecurityfund.vo.CollectionVO;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,15 +35,18 @@ public class CollectionServiceImpl implements CollectionService {
     
     @Resource
     private PaymentRecordMapper paymentRecordMapper;
+    @Resource
+    private CompanyEmployeeMapper companyEmployeeMapper;
 
     @Override
-    public Result<?> getStatistics(Integer year) {
+    public Result<?> getStatistics(Integer year, Long regionId) {
         if (year == null) {
             year = DateUtil.getCurrentYear();
         }
         
         // 获取统计数据
-        List<PayableAmount> list = payableAmountMapper.selectByYear(year);
+        List<PayableAmount> allList = payableAmountMapper.selectByYear(year);
+        List<PayableAmount> list = filterByRegionScope(allList, regionId);
         
         int totalUnits = list.size();
         int paidUnits = 0;
@@ -74,17 +81,41 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     @Override
-    public Result<?> getList(Integer year, String status, String keyword, Integer pageNum, Integer pageSize) {
+    public Result<?> getList(Integer year, String status, String keyword, Integer pageNum, Integer pageSize, Long regionId) {
         if (year == null) {
             year = DateUtil.getCurrentYear();
         }
         
-        // 计算分页
+        List<PayableAmount> rawList = payableAmountMapper.selectByYear(year);
+        List<PayableAmount> scopedList = filterByRegionScope(rawList, regionId);
+        List<PayableAmount> filteredList = new ArrayList<>();
+        String kw = keyword == null ? "" : keyword.trim().toLowerCase();
+        for (int i = 0; i < scopedList.size(); i++) {
+            PayableAmount pa = scopedList.get(i);
+            Company company = companyMapper.selectById(pa.getCompanyId());
+            if (company == null) continue;
+            if (status != null && !status.isEmpty()) {
+                String current = "UNPAID";
+                if (pa.getPaymentStatus() != null) {
+                    if (pa.getPaymentStatus() == 1) current = "PARTIAL";
+                    if (pa.getPaymentStatus() == 2) current = "PAID";
+                }
+                if (!status.equalsIgnoreCase(current)) {
+                    continue;
+                }
+            }
+            if (!kw.isEmpty()) {
+                String name = company.getName() == null ? "" : company.getName().toLowerCase();
+                if (!name.contains(kw)) {
+                    continue;
+                }
+            }
+            filteredList.add(pa);
+        }
+        int total = filteredList.size();
         int offset = (pageNum - 1) * pageSize;
-        
-        // 查询数据
-        List<PayableAmount> payableList = payableAmountMapper.selectByYearWithPage(year, status, keyword, offset, pageSize);
-        int total = payableAmountMapper.countByYearWithFilter(year, status, keyword);
+        int end = Math.min(offset + pageSize, total);
+        List<PayableAmount> payableList = offset < total ? filteredList.subList(offset, end) : new ArrayList<>();
         
         List<CollectionVO> resultList = new ArrayList<>();
         for (PayableAmount pa : payableList) {
@@ -100,7 +131,8 @@ public class CollectionServiceImpl implements CollectionService {
             vo.setRegisterAddress(company.getAddress());
             vo.setEstablishDate(company.getEstablishDate());
             vo.setPhone(company.getContactPhone());
-            vo.setEmployeeCount(company.getEmployeeCount());
+            vo.setTotalEmployeeCount((int) companyEmployeeMapper.countEmployees(pa.getCompanyId()));
+            vo.setEmployeeCount((int) companyEmployeeMapper.countActiveByCompanyId(pa.getCompanyId()));
             vo.setDisabledCount(pa.getDisabledEmployeeCount());
             vo.setYear(pa.getYear());
             vo.setStandardAmount(pa.getCalculatedAmount());
@@ -143,15 +175,28 @@ public class CollectionServiceImpl implements CollectionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<?> verifyPayment(Long collectionId, Double amount, String voucherNo, String remark) {
+        if (collectionId == null || amount == null || amount <= 0) {
+            return Result.error("核销参数不完整");
+        }
         PayableAmount payable = payableAmountMapper.selectById(collectionId);
         if (payable == null) {
             return Result.error("征收记录不存在");
+        }
+        Double payableAmount = payable.getPayableAmount() == null ? 0D : payable.getPayableAmount();
+        Double currentPaidAmount = payable.getPaidAmount() == null ? 0D : payable.getPaidAmount();
+        Double remainingAmount = payableAmount - currentPaidAmount;
+        if (remainingAmount <= 0) {
+            return Result.error("该记录已完成核销");
+        }
+        double verifyAmount = Math.min(amount, remainingAmount);
+        if (verifyAmount <= 0) {
+            return Result.error("核销金额无效");
         }
         
         // 创建缴款记录
         PaymentRecord record = new PaymentRecord();
         record.setPayableId(collectionId);
-        record.setActualAmount(amount);
+        record.setActualAmount(verifyAmount);
         record.setPaymentDate(DateUtil.today());
         record.setVoucherNo(voucherNo);
         record.setRemark(remark);
@@ -159,6 +204,22 @@ public class CollectionServiceImpl implements CollectionService {
         record.setStatus(1); // 已核销
         
         paymentRecordMapper.insert(record);
+
+        double newPaidAmount = currentPaidAmount + verifyAmount;
+        if (newPaidAmount > payableAmount) {
+            newPaidAmount = payableAmount;
+        }
+        int paymentStatus = 0;
+        if (newPaidAmount >= payableAmount && payableAmount > 0) {
+            paymentStatus = 2;
+        } else if (newPaidAmount > 0) {
+            paymentStatus = 1;
+        }
+        PayableAmount update = new PayableAmount();
+        update.setId(collectionId);
+        update.setPaidAmount(newPaidAmount);
+        update.setPaymentStatus(paymentStatus);
+        payableAmountMapper.updateById(update);
         
         return Result.success("核销成功");
     }
@@ -195,5 +256,51 @@ public class CollectionServiceImpl implements CollectionService {
         }
         
         return Result.success(resultList);
+    }
+
+    private List<PayableAmount> filterByRegionScope(List<PayableAmount> source, Long regionIdFilter) {
+        boolean districtScope = isDistrictAdmin();
+        Long currentRegionId = getCurrentRegionId();
+        Long targetRegionId = districtScope ? currentRegionId : regionIdFilter;
+        if (targetRegionId == null) {
+            return source;
+        }
+        List<PayableAmount> result = new ArrayList<>();
+        for (int i = 0; i < source.size(); i++) {
+            PayableAmount pa = source.get(i);
+            Company company = companyMapper.selectById(pa.getCompanyId());
+            if (company != null && targetRegionId.equals(company.getRegionId())) {
+                result.add(pa);
+            }
+        }
+        return result;
+    }
+
+    private boolean isDistrictAdmin() {
+        Map<String, Object> claims = getClaims();
+        if (claims == null) return false;
+        Object roleCodesObj = claims.get("roleCodes");
+        if (!(roleCodesObj instanceof List)) return false;
+        @SuppressWarnings("unchecked")
+        List<String> roleCodes = (List<String>) roleCodesObj;
+        return roleCodes.contains("admin_district");
+    }
+
+    private Long getCurrentRegionId() {
+        Map<String, Object> claims = getClaims();
+        if (claims == null) return null;
+        Object regionIdObj = claims.get("regionId");
+        if (regionIdObj == null) return null;
+        return Long.valueOf(String.valueOf(regionIdObj));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getClaims() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) return null;
+        HttpServletRequest request = attributes.getRequest();
+        Object userInfo = request.getAttribute("userInfo");
+        if (!(userInfo instanceof Map)) return null;
+        return (Map<String, Object>) userInfo;
     }
 }

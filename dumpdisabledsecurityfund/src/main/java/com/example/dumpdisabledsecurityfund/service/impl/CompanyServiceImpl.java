@@ -67,39 +67,72 @@ public class CompanyServiceImpl implements CompanyService {
 
     @Override
     public Result<?> getDetail(Long id) {
-        Company company = companyMapper.selectById(id);
-        if (company == null) {
-            return Result.error("企业不存在");
+        try {
+            Company company = companyMapper.selectById(id);
+            if (company == null) {
+                return Result.error("企业不存在");
+            }
+
+            CompanyDetailVO vo = convertToDetailVO(company);
+
+            Long companyId = company.getId();
+            long totalEmployees = companyEmployeeMapper.countEmployees(companyId);
+            long disabledEmployees = companyDisabledEmployeeMapper.countActiveByCompanyId(companyId);
+
+            vo.setTotalEmployees((int) totalEmployees);
+            vo.setDisabledEmployees((int) disabledEmployees);
+
+            return Result.success(vo);
+        } catch (Exception e) {
+            return Result.error("获取单位详情失败：" + e.getMessage());
         }
-
-        CompanyDetailVO vo = convertToDetailVO(company);
-
-        Long companyId = company.getId();
-        long totalEmployees = companyEmployeeMapper.selectByCompanyId(companyId).size();
-        long disabledEmployees = companyDisabledEmployeeMapper.selectByCompanyIdAndStatus(companyId, 1).size();
-
-        vo.setTotalEmployees((int) totalEmployees);
-        vo.setDisabledEmployees((int) disabledEmployees);
-
-        return Result.success(vo);
     }
 
     @Override
     public Result<?> getCurrentCompanyInfo() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes == null) {
-            return Result.error("无法获取请求上下文");
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null) {
+                return Result.error("无法获取请求上下文");
+            }
+
+            HttpServletRequest request = attributes.getRequest();
+            Object companyIdObj = request.getAttribute("companyId");
+
+            if (companyIdObj == null) {
+                return Result.error("未登录或不是企业用户");
+            }
+
+            Long companyId = Long.valueOf(companyIdObj.toString());
+            Map<String, Object> info = companyMapper.selectInfoMapById(companyId);
+            if (info == null || info.isEmpty()) {
+                return Result.error("企业不存在");
+            }
+
+            long totalEmployeeRecords = companyEmployeeMapper.countEmployees(companyId);
+            long totalEmployees = companyEmployeeMapper.countActiveByCompanyId(companyId);
+            long disabledEmployees = companyDisabledEmployeeMapper.countActiveByCompanyId(companyId);
+            info.put("totalEmployees", totalEmployees);
+            info.put("totalEmployeeRecords", totalEmployeeRecords);
+            info.put("disabledEmployees", disabledEmployees);
+
+            Integer status = null;
+            Object statusObj = info.get("status");
+            if (statusObj instanceof Number) {
+                status = ((Number) statusObj).intValue();
+            } else if (statusObj != null) {
+                try {
+                    status = Integer.parseInt(statusObj.toString());
+                } catch (NumberFormatException ignored) {
+                    status = null;
+                }
+            }
+            info.put("statusName", status != null && status == 1 ? "正常" : "异常");
+
+            return Result.success(info);
+        } catch (Exception e) {
+            return Result.error("获取当前单位信息失败：" + e.getMessage());
         }
-
-        HttpServletRequest request = attributes.getRequest();
-        Object companyIdObj = request.getAttribute("companyId");
-
-        if (companyIdObj == null) {
-            return Result.error("未登录或不是企业用户");
-        }
-
-        Long companyId = Long.valueOf(companyIdObj.toString());
-        return getDetail(companyId);
     }
 
     @Override

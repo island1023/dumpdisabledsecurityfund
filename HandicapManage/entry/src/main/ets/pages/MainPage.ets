@@ -38,9 +38,14 @@ interface TabItem {
 @Component
 struct MainPage {
   @State currentMenu: string = 'home';
+  /** 单位主页刷新信号：页面每次显示时递增，驱动 UnitHomePage 重新拉数 */
+  @State unitRefreshNonce: number = 0;
+  /** 通知单页面刷新信号：筛选区切换时递增 */
+  @State noticeReloadNonce: number = 0;
   @State isSheetShow: boolean = false;
   @State activeSheet: CustomSheetType = CustomSheetType.NONE;
   @State selectedDistrict: string = 'all'; // 当前选中的区，'all'表示全市
+  @State selectedRegionIdForChildren: number = 0; // 显式传给子页，避免表达式变更不触发
   @State profileUsername: string = '';
   @State profileOldPassword: string = '';
   @State profilePassword: string = '';
@@ -50,17 +55,17 @@ struct MainPage {
 
   // 区列表（模拟数据）
   private districtList: DistrictItem[] = [
-    { code: '510104', name: '锦江区' },
-    { code: '510105', name: '青羊区' },
-    { code: '510106', name: '金牛区' },
-    { code: '510107', name: '武侯区' },
-    { code: '510108', name: '成华区' },
-    { code: '510112', name: '龙泉驿区' },
-    { code: '510113', name: '青白江区' },
-    { code: '510114', name: '新都区' },
-    { code: '510115', name: '温江区' },
-    { code: '510116', name: '双流区' },
-    { code: '510117', name: '郫都区' }
+    { id: 1, code: '510104', name: '锦江区' },
+    { id: 2, code: '510105', name: '青羊区' },
+    { id: 3, code: '510106', name: '金牛区' },
+    { id: 4, code: '510107', name: '武侯区' },
+    { id: 5, code: '510108', name: '成华区' },
+    { id: 6, code: '510112', name: '龙泉驿区' },
+    { id: 7, code: '510113', name: '青白江区' },
+    { id: 8, code: '510114', name: '新都区' },
+    { id: 9, code: '510115', name: '温江区' },
+    { id: 10, code: '510116', name: '双流区' },
+    { id: 11, code: '510117', name: '郫都区' }
   ];
 
   // Tab配置
@@ -153,6 +158,13 @@ struct MainPage {
     } else {
       this.currentMenu = appViewModel.currentMenu || 'home';
     }
+    this.selectedRegionIdForChildren = this.getSelectedRegionId();
+  }
+
+  onPageShow(): void {
+    if (appViewModel.isLoggedIn && appViewModel.currentUser?.role === 'UNIT') {
+      this.unitRefreshNonce++;
+    }
   }
 
   getVisibleTabs(): TabItem[] {
@@ -186,17 +198,17 @@ struct MainPage {
   @Builder
   buildPageContent() {
     if (this.isUnitAccount()) {
-      UnitHomePage()
+      UnitHomePage({ refreshNonce: this.unitRefreshNonce })
     } else if (this.currentMenu === 'unit') {
-      UnitHomePage()
+      UnitHomePage({ refreshNonce: this.unitRefreshNonce })
     } else if (this.currentMenu === 'system') {
       SystemManagePage()
     } else if (this.currentMenu === 'approval') {
-      ApprovalPendingPage()
+      ApprovalPendingPage({ selectedRegionId: this.selectedRegionIdForChildren })
     } else if (this.currentMenu === 'collection') {
-      CollectionPage()
+      CollectionPage({ selectedRegionId: this.selectedRegionIdForChildren })
     } else if (this.currentMenu === 'notice') {
-      NoticePage()
+      NoticePage({ selectedRegionId: this.selectedRegionIdForChildren, reloadNonce: this.noticeReloadNonce })
     } else if (this.currentMenu === 'report') {
       // 领导角色使用LeaderReportPage，管理员角色使用ReportPage
       if (appViewModel.currentUser?.role === 'DISTRICT_LEADER' || appViewModel.currentUser?.role === 'CITY_LEADER') {
@@ -205,11 +217,11 @@ struct MainPage {
         ReportPage()
       }
     } else if (this.currentMenu === 'archive') {
-      LeaderArchivePage()
+      LeaderArchivePage({ selectedRegionId: this.selectedRegionIdForChildren })
     } else if (this.currentMenu === 'fund') {
-      LeaderFundUsagePage()
+      LeaderFundUsagePage({ selectedRegionId: this.selectedRegionIdForChildren })
     } else {
-      LeaderArchivePage()
+      LeaderArchivePage({ selectedRegionId: this.selectedRegionIdForChildren })
     }
   }
 
@@ -272,7 +284,7 @@ struct MainPage {
   build() {
     // 单位用户直接显示UnitHomePage,不使用MainPage的布局
     if (appViewModel.currentUser?.role === 'UNIT') {
-      UnitHomePage()
+      UnitHomePage({ refreshNonce: this.unitRefreshNonce })
     } else {
       Stack() {
         Column() {
@@ -563,7 +575,16 @@ struct MainPage {
   // 处理区级筛选变更
   private handleDistrictChange(code: string): void {
     this.selectedDistrict = code;
+    this.selectedRegionIdForChildren = this.getSelectedRegionId();
     console.log('筛选区:', code === 'all' ? '全市' : code);
-    // 这里可以触发数据刷新，通知各子页面重新加载数据
+    this.noticeReloadNonce++;
+  }
+
+  private getSelectedRegionId(): number {
+    if (this.selectedDistrict === 'all') {
+      return 0;
+    }
+    const target = this.districtList.find(item => item.code === this.selectedDistrict);
+    return target?.id || 0;
   }
 }

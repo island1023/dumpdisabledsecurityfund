@@ -10,6 +10,7 @@ public class CompanyReduction {
     private Integer applyType;
     private Double applyAmount;
     private String reason;
+    private String attachment;
     private Integer auditStatus;
     private Long auditorId;
     private String auditOpinion;

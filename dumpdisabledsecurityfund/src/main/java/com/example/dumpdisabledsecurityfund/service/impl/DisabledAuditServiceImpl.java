@@ -2,6 +2,10 @@ package com.example.dumpdisabledsecurityfund.service.impl;
 
 import com.example.dumpdisabledsecurityfund.common.Result;
 import com.example.dumpdisabledsecurityfund.entity.DisabledAudit;
+import com.example.dumpdisabledsecurityfund.entity.CompanyDisabledEmployee;
+import com.example.dumpdisabledsecurityfund.entity.CompanyEmployee;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyDisabledEmployeeMapper;
+import com.example.dumpdisabledsecurityfund.mapper.CompanyEmployeeMapper;
 import com.example.dumpdisabledsecurityfund.mapper.DisabledAuditMapper;
 import com.example.dumpdisabledsecurityfund.service.DisabledAuditService;
 import com.example.dumpdisabledsecurityfund.util.DateUtil;
@@ -21,6 +25,10 @@ public class DisabledAuditServiceImpl implements DisabledAuditService {
 
     @Resource
     private DisabledAuditMapper disabledAuditMapper;
+    @Resource
+    private CompanyEmployeeMapper companyEmployeeMapper;
+    @Resource
+    private CompanyDisabledEmployeeMapper companyDisabledEmployeeMapper;
 
     @Override
     public Result<?> getList(Long companyId, Integer year, Integer auditStatus) {
@@ -88,6 +96,35 @@ public class DisabledAuditServiceImpl implements DisabledAuditService {
             return Result.error("审核失败");
         }
 
+        if (status == 1) {
+            CompanyDisabledEmployee existed = companyDisabledEmployeeMapper.selectByIdCard(existing.getIdCard());
+            if (existed != null) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("id", id);
+                result.put("status", status);
+                result.put("auditTime", auditTime);
+                result.put("message", "审核通过（该职工已存在残疾职工名单）");
+                return Result.success(result);
+            }
+            CompanyEmployee employee = findCompanyEmployee(existing.getCompanyId(), existing.getIdCard());
+            if (employee != null) {
+                CompanyDisabledEmployee disabled = new CompanyDisabledEmployee();
+                disabled.setCompanyId(existing.getCompanyId());
+                disabled.setName(existing.getEmployeeName());
+                disabled.setIdCard(existing.getIdCard());
+                disabled.setDisabilityCertNo(buildDisabilityCertNo(existing));
+                disabled.setDisabilityType(existing.getDisabilityType() == null ? "待补录" : existing.getDisabilityType());
+                disabled.setDisabilityLevel(existing.getDisabilityLevel() == null ? "待补录" : existing.getDisabilityLevel());
+                disabled.setJobPosition(employee.getJobPosition());
+                disabled.setEntryDate(existing.getHireDate() == null ? employee.getEntryDate() : existing.getHireDate());
+                disabled.setIsActive(1);
+                disabled.setAuditPassTime(auditTime);
+                disabled.setCreateTime(auditTime);
+                disabled.setUpdateTime(auditTime);
+                companyDisabledEmployeeMapper.insert(disabled);
+            }
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("id", id);
         result.put("status", status);
@@ -95,5 +132,26 @@ public class DisabledAuditServiceImpl implements DisabledAuditService {
         result.put("message", status == 1 ? "审核通过" : "审核不通过");
 
         return Result.success(result);
+    }
+
+    private CompanyEmployee findCompanyEmployee(Long companyId, String idCard) {
+        if (companyId == null || idCard == null) {
+            return null;
+        }
+        List<CompanyEmployee> employees = companyEmployeeMapper.selectByCompanyId(companyId);
+        for (int i = 0; i < employees.size(); i++) {
+            CompanyEmployee employee = employees.get(i);
+            if (idCard.equals(employee.getIdCard())) {
+                return employee;
+            }
+        }
+        return null;
+    }
+
+    private String buildDisabilityCertNo(DisabledAudit audit) {
+        String now = DateUtil.now();
+        String compact = now.replace("-", "").replace(":", "").replace(" ", "");
+        String suffix = audit.getId() == null ? "0000" : String.valueOf(audit.getId());
+        return "AUD" + compact + suffix;
     }
 }

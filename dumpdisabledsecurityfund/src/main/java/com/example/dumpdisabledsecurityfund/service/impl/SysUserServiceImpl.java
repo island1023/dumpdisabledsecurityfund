@@ -52,9 +52,17 @@ public class SysUserServiceImpl implements SysUserService {
 
         int offset = (pageNum - 1) * pageSize;
         List<SysUser> users = sysUserMapper.selectUsersWithPage(keyword, offset, pageSize);
-        long total = sysUserMapper.countUsers(keyword);
+        List<CompanyUser> companyUsers = companyUserMapper.selectAll();
+        List<CompanyUser> filteredCompanyUsers = companyUsers.stream()
+                .filter(item -> matchCompanyUserKeyword(item, keyword))
+                .collect(Collectors.toList());
+
+        long total = sysUserMapper.countUsers(keyword) + filteredCompanyUsers.size();
 
         List<SysUserVO> voList = users.stream().map(this::convertToVO).collect(Collectors.toList());
+        for (CompanyUser companyUser : filteredCompanyUsers) {
+            voList.add(convertCompanyUserToVO(companyUser));
+        }
         PageResult<SysUserVO> pageResult = PageResult.build(total, pageNum, pageSize, voList);
 
         return Result.success(pageResult);
@@ -109,33 +117,16 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     private Result<?> createCompanyUser(SysUserCreateDTO dto) {
-        Region region = null;
-        if (dto.getDistrict() != null && !dto.getDistrict().isEmpty()) {
-            region = regionMapper.selectByName(dto.getDistrict());
+        if (dto.getCompanyId() == null) {
+            return Result.error("创建单位用户时 companyId 不能为空");
         }
-        if (region == null) {
-            region = regionMapper.selectById(510100L);
+        Company company = companyMapper.selectById(dto.getCompanyId());
+        if (company == null) {
+            return Result.error("所选单位不存在");
         }
-        if (region == null) {
-            return Result.error("未找到可用地区，请先配置地区数据");
-        }
-
-        Company company = new Company();
-        company.setUnifiedSocialCreditCode(generateTempCreditCode(dto.getUsername()));
-        company.setName(dto.getRealName() + "单位");
-        company.setRegionId(region.getId());
-        company.setLegalPerson(dto.getRealName());
-        company.setContactPhone("");
-        company.setIndustry("未分类");
-        company.setAddress("");
-        company.setEmployeeCount(0);
-        company.setStatus(1);
-        company.setCreateTime(DateUtil.now());
-        company.setUpdateTime(DateUtil.now());
-        companyMapper.insert(company);
 
         CompanyUser companyUser = new CompanyUser();
-        companyUser.setCompanyId(company.getId());
+        companyUser.setCompanyId(dto.getCompanyId());
         companyUser.setUsername(dto.getUsername());
         companyUser.setPassword(PasswordUtil.encrypt("123456"));
         companyUser.setName(dto.getRealName());
@@ -150,11 +141,6 @@ public class SysUserServiceImpl implements SysUserService {
         data.put("password", "123456");
         data.put("accountType", "company");
         return Result.success("创建成功", data);
-    }
-
-    private String generateTempCreditCode(String username) {
-        String raw = "TEMP_" + username + "_" + System.currentTimeMillis();
-        return raw.length() <= 50 ? raw : raw.substring(0, 50);
     }
 
     @Override
@@ -341,6 +327,45 @@ public class SysUserServiceImpl implements SysUserService {
         vo.setUpdateTime(user.getUpdateTime() != null ? user.getUpdateTime().substring(0, 10) : "");
 
         return vo;
+    }
+
+    private SysUserVO convertCompanyUserToVO(CompanyUser user) {
+        SysUserVO vo = new SysUserVO();
+        vo.setId(String.valueOf(user.getId()));
+        vo.setUsername(user.getUsername());
+        vo.setRealName(user.getName());
+        vo.setRole("UNIT");
+        vo.setRoleName("单位负责人");
+
+        Company company = companyMapper.selectById(user.getCompanyId());
+        if (company != null && company.getRegionId() != null) {
+            Region region = regionMapper.selectById(company.getRegionId());
+            if (region != null) {
+                vo.setDistrictCode(region.getCode());
+                vo.setDistrictName(region.getName());
+            } else {
+                vo.setDistrictCode("");
+                vo.setDistrictName("");
+            }
+        } else {
+            vo.setDistrictCode("");
+            vo.setDistrictName("");
+        }
+
+        vo.setStatus(user.getStatus() != null && user.getStatus() == 1 ? "启用" : "禁用");
+        vo.setCreateTime(user.getCreateTime() != null && user.getCreateTime().length() >= 10 ? user.getCreateTime().substring(0, 10) : "");
+        vo.setUpdateTime(user.getUpdateTime() != null && user.getUpdateTime().length() >= 10 ? user.getUpdateTime().substring(0, 10) : "");
+        return vo;
+    }
+
+    private boolean matchCompanyUserKeyword(CompanyUser user, String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return true;
+        }
+        String kw = keyword.trim().toLowerCase();
+        String username = user.getUsername() == null ? "" : user.getUsername().toLowerCase();
+        String realName = user.getName() == null ? "" : user.getName().toLowerCase();
+        return username.contains(kw) || realName.contains(kw);
     }
 
     private String convertToRoleCode(SysUser user) {

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.dumpdisabledsecurityfund.mapper.LeaderExternalReportMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.dumpdisabledsecurityfund.entity.LeaderExternalReport">
+        <id column="id" property="id"/>
+        <result column="report_type" property="reportType"/>
+        <result column="stat_year" property="statYear"/>
+        <result column="stat_month" property="statMonth"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="payload_json" property="payloadJson"/>
+    </resultMap>
+
+    <select id="selectByTypeAndYearMonth" resultMap="BaseResultMap">
+        SELECT * FROM leader_external_report
+        WHERE report_type = #{reportType}
+          AND stat_year = #{year}
+          AND stat_month = #{month}
+        ORDER BY sort_order ASC, id ASC
+    </select>
+</mapper>

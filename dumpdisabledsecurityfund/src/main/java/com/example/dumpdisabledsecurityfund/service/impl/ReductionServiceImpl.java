@@ -43,6 +43,7 @@ public class ReductionServiceImpl implements ReductionService {
         reduction.setApplyType(dto.getApplyType());
         reduction.setApplyAmount(dto.getApplyAmount() != null ? dto.getApplyAmount() : 0D);
         reduction.setReason(dto.getReason());
+        reduction.setAttachment(dto.getAttachment());
         reduction.setAuditStatus(0);
         reduction.setCreateTime(DateUtil.now());
         reduction.setUpdateTime(DateUtil.now());
@@ -68,9 +69,10 @@ public class ReductionServiceImpl implements ReductionService {
         ReductionApplyDTO dto = new ReductionApplyDTO();
         dto.setCompanyId(getCurrentCompanyId());
         dto.setYear(Integer.parseInt(reqMap.get("year").toString().replace("年", "")));
-        dto.setApplyType("减免".equals(reqMap.get("type")) ? 1 : 3);
+        dto.setApplyType(parseApplyType(String.valueOf(reqMap.get("type"))));
         dto.setApplyAmount(Double.parseDouble(reqMap.get("amount").toString()));
         dto.setReason((String) reqMap.get("reason"));
+        dto.setAttachment((String) reqMap.get("attachment"));
 
         return apply(dto);
     }
@@ -97,7 +99,7 @@ public class ReductionServiceImpl implements ReductionService {
         List<Map<String, Object>> result = pageList.stream().map(item -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", item.getId());
-            map.put("type", item.getApplyType() == 1 ? "减免" : "缓缴");
+            map.put("type", getApplyTypeName(item.getApplyType()));
             map.put("year", item.getYear() + "年");
             map.put("amount", "¥" + String.format("%,.0f", item.getApplyAmount()));
             map.put("status", getAuditStatusName(item.getAuditStatus()));
@@ -121,10 +123,11 @@ public class ReductionServiceImpl implements ReductionService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("id", reduction.getId());
-        result.put("type", reduction.getApplyType() == 1 ? "减免" : "缓缴");
+        result.put("type", getApplyTypeName(reduction.getApplyType()));
         result.put("year", reduction.getYear() + "年");
         result.put("amount", String.valueOf(reduction.getApplyAmount()));
         result.put("reason", reduction.getReason());
+        result.put("attachment", reduction.getAttachment());
         result.put("status", getAuditStatusName(reduction.getAuditStatus()));
         result.put("submitDate", reduction.getCreateTime());
 
@@ -336,11 +339,40 @@ public class ReductionServiceImpl implements ReductionService {
     private String getAuditStatusName(Integer status) {
         if (status == null) return "待审核";
         switch (status) {
-            case 0: return "待审核";
+            case 0: return "审批中";
             case 1: return "已通过";
             case 2: return "已驳回";
             case 3: return "已撤回";
             default: return "未知";
+        }
+    }
+
+    private Integer parseApplyType(String type) {
+        if (type == null) {
+            return 1;
+        }
+        String value = type.trim();
+        if ("减".equals(value) || "减免".equals(value)) {
+            return 1;
+        }
+        if ("免".equals(value) || "免缴".equals(value)) {
+            return 2;
+        }
+        if ("缓".equals(value) || "缓缴".equals(value)) {
+            return 3;
+        }
+        return 1;
+    }
+
+    private String getApplyTypeName(Integer applyType) {
+        if (applyType == null) {
+            return "减";
+        }
+        switch (applyType) {
+            case 1: return "减";
+            case 2: return "免";
+            case 3: return "缓";
+            default: return "减";
         }
     }
 }

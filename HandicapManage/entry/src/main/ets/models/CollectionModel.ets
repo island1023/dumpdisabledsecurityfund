@@ -6,13 +6,19 @@ export interface CollectionRecord {
  unitId: string;
  unitName: string;
  year: number; // 核算年度
- employeeCount: number; // 职工总数
+ totalEmployeeCount?: number; // 职工总数
+ employeeCount: number; // 在职职工数
  disabledEmployeeCount: number; // 安置残疾人数
  standardAmount: number; // 应缴金额
  reductionAmount: number; // 减免金额
  payableAmount: number; // 实缴金额
  paidAmount: number; // 已缴金额
  status: 'UNPAID' | 'PAID' | 'PARTIAL';
+ creditCode?: string;
+ legalPerson?: string;
+ registerAddress?: string;
+ establishDate?: string;
+ phone?: string;
  createTime: string;
  updateTime: string;
 }
@@ -39,6 +45,7 @@ export interface PaymentRecord {
 export interface CollectionQueryParams {
  year?: number;
  districtCode?: string;
+regionId?: number;
  status?: string;
  keyword?: string;
  pageNum: number;

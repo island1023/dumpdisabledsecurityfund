@@ -18,6 +18,10 @@ public interface FundUsageMapper {
 
     List<FundUsage> selectByAuditStatus(@Param("auditStatus") Integer auditStatus);
 
+    List<FundUsage> selectLeaderFundUsage(@Param("regionId") Long regionId,
+                                          @Param("projectType") String projectType,
+                                          @Param("keyword") String keyword);
+
     Double sumAmountByYear(@Param("year") Integer year);
 
     Double sumAmountByRegionAndYear(@Param("regionId") Long regionId, @Param("year") Integer year);

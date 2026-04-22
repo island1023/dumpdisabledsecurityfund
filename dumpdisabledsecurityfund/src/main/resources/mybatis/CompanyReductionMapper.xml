@@ -10,6 +10,7 @@
         <result column="apply_type" property="applyType"/>
         <result column="apply_amount" property="applyAmount"/>
         <result column="reason" property="reason"/>
+        <result column="attachment" property="attachment"/>
         <result column="audit_status" property="auditStatus"/>
         <result column="auditor_id" property="auditorId"/>
         <result column="audit_opinion" property="auditOpinion"/>
@@ -20,11 +21,11 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO company_reduction(
-            company_id, year, apply_type, apply_amount, reason,
+            company_id, year, apply_type, apply_amount, reason, attachment,
             audit_status, auditor_id, audit_opinion, audit_time,
             create_time, update_time
         ) VALUES(
-                    #{companyId}, #{year}, #{applyType}, #{applyAmount}, #{reason},
+                    #{companyId}, #{year}, #{applyType}, #{applyAmount}, #{reason}, #{attachment},
                     #{auditStatus}, #{auditorId}, #{auditOpinion}, #{auditTime},
                     #{createTime}, #{updateTime}
                 )
@@ -63,6 +64,7 @@
         <set>
             <if test="applyAmount != null">apply_amount = #{applyAmount},</if>
             <if test="reason != null">reason = #{reason},</if>
+            <if test="attachment != null">attachment = #{attachment},</if>
             <if test="auditStatus != null">audit_status = #{auditStatus},</if>
             <if test="auditorId != null">auditor_id = #{auditorId},</if>
             <if test="auditOpinion != null">audit_opinion = #{auditOpinion},</if>

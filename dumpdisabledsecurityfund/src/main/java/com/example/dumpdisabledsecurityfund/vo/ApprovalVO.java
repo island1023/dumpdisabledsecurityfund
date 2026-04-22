@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class ApprovalVO {
-    private Long id;
+    private String id;
     private String companyName;
     private String applyType;
     private String applyDate;

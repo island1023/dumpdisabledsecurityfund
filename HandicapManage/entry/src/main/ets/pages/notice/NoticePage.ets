@@ -1,7 +1,13 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
 import { promptAction } from '@kit.ArkUI';
+import { buildAuthorizedGetUrlWithQuery, get, post, probeDownloadUrl } from '../../services/HttpUtil';
+import { Want } from '@kit.AbilityKit';
+import common from '@ohos.app.ability.common';
+import { webview } from '@kit.ArkWeb';
 
 interface NoticeItem {
+  payableId: string;
+  noticeId?: string;
   id: string;
   companyName: string;
   noticeType: string; // '缴款通知书' 或 '征收决定书'
@@ -12,6 +18,22 @@ interface NoticeItem {
   pdfUrl?: string; // PDF文档URL
 }
 
+class NoticeListQueryParams {
+  page: number = 1;
+  pageSize: number = 100;
+  noticeType: number = 1;
+  keyword: string = '';
+}
+
+class NoticeGenerateRequest {
+  payableIds: string[] = [];
+  noticeType: number = 1;
+}
+
+class NoticePrintRequest {
+  noticeIds: string[] = [];
+}
+
 // 弹窗类型枚举
 enum NoticeSheetType {
   NONE,
@@ -20,6 +42,8 @@ enum NoticeSheetType {
 
 @Component
 export struct NoticePage {
+  @Prop @Watch('onRegionChanged') selectedRegionId: number = 0;
+  @Prop @Watch('onReloadNonceChanged') reloadNonce: number = 0;
   @State searchKeyword: string = '';
   @State noticeType: string = 'payment'; // 'payment'-缴款通知书, 'decision'-征收决定书
   @State selectedItems: string[] = [];
@@ -27,61 +51,26 @@ export struct NoticePage {
   @State activeSheet: NoticeSheetType = NoticeSheetType.NONE;
   @State selectedNotice: NoticeItem | null = null;
   @State previewContent: string = ''; // 预览内容
+  @State previewPdfUrl: string = '';
+  private pdfWebController: webview.WebviewController = new webview.WebviewController();
 
-  @State noticeList: NoticeItem[] = [
-    {
-      id: '1',
-      companyName: '成都科技发展有限公司',
-      noticeType: '缴款通知书',
-      year: '2025年',
-      amount: 180000,
-      status: '已生成',
-      generateDate: '2025-04-15'
-    },
-    {
-      id: '2',
-      companyName: '珠江商贸集团',
-      noticeType: '缴款通知书',
-      year: '2025年',
-      amount: 150000,
-      status: '未生成'
-    },
-    {
-      id: '3',
-      companyName: '白云制造有限公司',
-      noticeType: '征收决定书',
-      year: '2025年',
-      amount: 210000,
-      status: '已生成',
-      generateDate: '2025-04-14'
-    },
-    {
-      id: '4',
-      companyName: '天河建设集团',
-      noticeType: '缴款通知书',
-      year: '2025年',
-      amount: 240000,
-      status: '已打印',
-      generateDate: '2025-04-13'
-    },
-    {
-      id: '5',
-      companyName: '越秀金融服务有限公司',
-      noticeType: '征收决定书',
-      year: '2025年',
-      amount: 90000,
-      status: '未生成'
-    },
-    {
-      id: '6',
-      companyName: '黄埔实业有限公司',
-      noticeType: '缴款通知书',
-      year: '2025年',
-      amount: 160000,
-      status: '已生成',
-      generateDate: '2025-04-12'
-    }
-  ];
+  @State noticeList: NoticeItem[] = [];
+  @State isLoading: boolean = false;
+  @State actionLoading: boolean = false;
+
+  aboutToAppear() {
+    this.loadNoticeList();
+  }
+
+  private onRegionChanged(): void {
+    console.info(`NoticePage区域筛选变更: regionId=${this.selectedRegionId}`);
+    this.loadNoticeList();
+  }
+
+  private onReloadNonceChanged(): void {
+    console.info(`NoticePage强制刷新: regionId=${this.selectedRegionId}, reloadNonce=${this.reloadNonce}`);
+    this.loadNoticeList();
+  }
 
   // 打开弹窗
   private openSheet(type: NoticeSheetType) {
@@ -103,6 +92,7 @@ export struct NoticePage {
           .margin({ right: 12 })
           .onClick(() => {
             this.noticeType = 'payment';
+            this.loadNoticeList();
           })
 
         Text('征收决定书')
@@ -114,6 +104,7 @@ export struct NoticePage {
           .borderRadius(16)
           .onClick(() => {
             this.noticeType = 'decision';
+            this.loadNoticeList();
           })
       }
       .width('100%')
@@ -133,7 +124,7 @@ export struct NoticePage {
           })
           .margin({ right: 12 })
 
-        Button('批量打印')
+        Button('批量打印/导出PDF')
           .width(100)
           .height(36)
           .fontSize(14)
@@ -170,11 +161,24 @@ export struct NoticePage {
           .backgroundColor(ColorConstants.PRIMARY)
           .borderRadius(8)
           .margin({ left: 12 })
+          .onClick(() => {
+            this.loadNoticeList();
+          })
       }
       .width('100%')
       .margin({ bottom: 16 })
 
       // 列表 - 可滚动
+      if (this.isLoading) {
+        Column() {
+          Text('加载中...')
+            .fontSize(14)
+            .fontColor(ColorConstants.TEXT_SECONDARY)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else {
       Scroll() {
         Column() {
           ForEach(this.getFilteredList(), (item: NoticeItem) => {
@@ -276,9 +280,7 @@ export struct NoticePage {
                   .borderRadius(6)
                   .margin({ right: 8 })
                   .onClick(() => {
-                    this.selectedNotice = item;
-                    this.generatePreviewContent(item);
-                    this.openSheet(NoticeSheetType.PREVIEW);
+                    this.handlePreview(item);
                   })
 
                 if (item.status === '已生成' || item.status === '已打印') {
@@ -329,6 +331,7 @@ export struct NoticePage {
       .layoutWeight(1)
       .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
+      }
     }
     .width('100%')
     .height('100%')
@@ -344,6 +347,7 @@ export struct NoticePage {
         this.activeSheet = NoticeSheetType.NONE;
         this.selectedNotice = null;
         this.previewContent = '';
+        this.previewPdfUrl = '';
       }
     })
   }
@@ -361,48 +365,61 @@ export struct NoticePage {
 
   @Builder
   buildPreviewDialog() {
-    Scroll() {
+    if (this.previewPdfUrl) {
       Column() {
-        if (this.selectedNotice) {
-          // 标题
-          Text(this.selectedNotice.noticeType)
-            .fontSize(20)
-            .fontColor(ColorConstants.TEXT_TITLE)
-            .fontWeight(FontWeight.Bold)
-            .width('100%')
-            .textAlign(TextAlign.Center)
-            .margin({ bottom: 24 })
-
-          // 文档内容
-          Column() {
-            Text(this.previewContent)
-              .fontSize(14)
-              .fontColor(ColorConstants.TEXT_BODY)
-              .lineHeight(24)
-              .width('100%')
-          }
+        Web({ src: this.previewPdfUrl, controller: this.pdfWebController })
+          .domStorageAccess(true)
+          .javaScriptAccess(true)
           .width('100%')
-          .padding(20)
-          .backgroundColor(ColorConstants.BG_PAGE)
-          .borderRadius(8)
-          .margin({ bottom: 20 })
-
-          // 提示信息
-          Row() {
-            Text('提示：此PDF文档已上传至单位用户的通知单管理系统')
-              .fontSize(12)
-              .fontColor(ColorConstants.TEXT_SECONDARY)
-          }
-          .width('100%')
-          .padding(12)
-          .backgroundColor('rgba(199, 28, 34, 0.05)')
-          .borderRadius(8)
-        }
+          .height('100%')
       }
       .width('100%')
-      .padding({ left: 24, right: 24, top: 24, bottom: 24 })
+      .height('100%')
+      .padding({ left: 8, right: 8, top: 8, bottom: 8 })
+    } else {
+      Scroll() {
+        Column() {
+          if (this.selectedNotice) {
+            // 标题
+            Text(this.selectedNotice.noticeType)
+              .fontSize(20)
+              .fontColor(ColorConstants.TEXT_TITLE)
+              .fontWeight(FontWeight.Bold)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .margin({ bottom: 24 })
+
+            // 文档内容
+            Column() {
+              Text(this.previewContent)
+                .fontSize(14)
+                .fontColor(ColorConstants.TEXT_BODY)
+                .lineHeight(24)
+                .width('100%')
+            }
+            .width('100%')
+            .padding(20)
+            .backgroundColor(ColorConstants.BG_PAGE)
+            .borderRadius(8)
+            .margin({ bottom: 20 })
+
+            // 提示信息
+            Row() {
+              Text('提示：此PDF文档已上传至单位用户的通知单管理系统')
+                .fontSize(12)
+                .fontColor(ColorConstants.TEXT_SECONDARY)
+            }
+            .width('100%')
+            .padding(12)
+            .backgroundColor('rgba(199, 28, 34, 0.05)')
+            .borderRadius(8)
+          }
+        }
+        .width('100%')
+        .padding({ left: 24, right: 24, top: 24, bottom: 24 })
+      }
+      .width('100%')
     }
-    .width('100%')
   }
 
   private getFilteredList(): NoticeItem[] {
@@ -455,45 +472,30 @@ export struct NoticePage {
   }
 
   private handleGenerate(item: NoticeItem) {
-    // TODO: 调用后端API生成通知单
-    console.log('调用API生成通知单:', item.companyName, item.noticeType);
-    
-    const index = this.noticeList.findIndex(n => n.id === item.id);
-    if (index !== -1) {
-      const updatedList = this.noticeList.slice();
-      updatedList[index] = {
-        id: updatedList[index].id,
-        companyName: updatedList[index].companyName,
-        noticeType: updatedList[index].noticeType,
-        year: updatedList[index].year,
-        amount: updatedList[index].amount,
-        status: '已生成',
-        generateDate: new Date().toISOString().split('T')[0],
-        pdfUrl: `https://api.example.com/notices/${item.id}.pdf` // 模拟PDF URL
-      };
-      this.noticeList = updatedList;
-      
-      promptAction.showToast({ message: '通知单生成成功，已发送至单位用户系统' });
+    if (this.actionLoading) {
+      return;
     }
+    console.info(`点击生成: payableId=${item.payableId}, company=${item.companyName}, status=${item.status}`);
+    void this.generateByPayableIds([item.payableId]);
   }
 
   private handlePrint(item: NoticeItem) {
-    const index = this.noticeList.findIndex(n => n.id === item.id);
-    if (index !== -1) {
-      const updatedList = this.noticeList.slice();
-      updatedList[index] = {
-        id: updatedList[index].id,
-        companyName: updatedList[index].companyName,
-        noticeType: updatedList[index].noticeType,
-        year: updatedList[index].year,
-        amount: updatedList[index].amount,
-        status: '已打印'
-      };
-      this.noticeList = updatedList;
+    if (!item.noticeId) {
+      promptAction.showToast({ message: '请先生成通知单' });
+      return;
     }
+    void this.printByNoticeIds([item.noticeId]);
   }
 
   private handlePreview(item: NoticeItem) {
+    if (item.noticeId && (item.status === '已生成' || item.status === '已打印')) {
+      const encodedId = encodeURIComponent(item.noticeId);
+      this.previewPdfUrl = buildAuthorizedGetUrlWithQuery(`/notice/preview?id=${encodedId}`) + '#toolbar=0&navpanes=0&scrollbar=0';
+      this.selectedNotice = item;
+      this.openSheet(NoticeSheetType.PREVIEW);
+      return;
+    }
+    this.previewPdfUrl = '';
     this.selectedNotice = item;
     this.generatePreviewContent(item);
     this.openSheet(NoticeSheetType.PREVIEW);
@@ -511,65 +513,237 @@ export struct NoticePage {
   }
 
   private handleBatchGenerate() {
+    if (this.actionLoading) {
+      return;
+    }
     if (this.selectedItems.length === 0) {
-      promptAction.showToast({ message: '请选择要生成的通知单' });
+      this.showToastSafe('请选择要生成的通知单');
       return;
     }
     
-    // 保存选中数量用于提示
-    const generateCount = this.selectedItems.length;
-    
-    // TODO: 调用后端API批量生成
-    console.log('批量生成通知单:', this.selectedItems);
-    
-    const updatedList = this.noticeList.slice();
-    this.selectedItems.forEach(id => {
-      const index = updatedList.findIndex(n => n.id === id);
-      if (index !== -1) {
-        updatedList[index] = {
-          id: updatedList[index].id,
-          companyName: updatedList[index].companyName,
-          noticeType: updatedList[index].noticeType,
-          year: updatedList[index].year,
-          amount: updatedList[index].amount,
-          status: '已生成',
-          generateDate: new Date().toISOString().split('T')[0],
-          pdfUrl: `https://api.example.com/notices/${id}.pdf`
-        };
+    const payableIds: string[] = [];
+    for (let i = 0; i < this.selectedItems.length; i++) {
+      const selected = this.noticeList.find(n => n.id === this.selectedItems[i]);
+      if (selected) {
+        payableIds.push(selected.payableId);
       }
-    });
-    this.noticeList = updatedList;
-    this.selectedItems = [];
-    
-    promptAction.showToast({ message: `已成功生成${generateCount}份通知单` });
+    }
+    void this.generateByPayableIds(payableIds);
   }
 
   private handleBatchPrint() {
+    if (this.actionLoading) {
+      return;
+    }
     if (this.selectedItems.length === 0) {
-      promptAction.showToast({ message: '请选择要打印的通知单' });
+      this.showToastSafe('请选择要打印的通知单');
       return;
     }
     
-    // 保存选中数量用于提示
-    const printCount = this.selectedItems.length;
-    
-    const updatedList = this.noticeList.slice();
-    this.selectedItems.forEach(id => {
-      const index = updatedList.findIndex(n => n.id === id);
-      if (index !== -1) {
-        updatedList[index] = {
-          id: updatedList[index].id,
-          companyName: updatedList[index].companyName,
-          noticeType: updatedList[index].noticeType,
-          year: updatedList[index].year,
-          amount: updatedList[index].amount,
-          status: '已打印'
-        };
+    const noticeIds: string[] = [];
+    for (let i = 0; i < this.selectedItems.length; i++) {
+      const selected = this.noticeList.find(n => n.id === this.selectedItems[i]);
+      if (selected && selected.noticeId) {
+        noticeIds.push(selected.noticeId);
       }
-    });
-    this.noticeList = updatedList;
-    this.selectedItems = [];
-    
-    promptAction.showToast({ message: `已成功打印${printCount}份通知单` });
+    }
+    if (noticeIds.length === 0) {
+      this.showToastSafe('请先生成通知单再打印');
+      return;
+    }
+    void this.printByNoticeIds(noticeIds);
   }
+
+  private async loadNoticeList(): Promise<void> {
+    try {
+      this.isLoading = true;
+      const typeCode = this.noticeType === 'payment' ? 1 : 2;
+      const params = new NoticeListQueryParams();
+      params.page = 1;
+      params.pageSize = 100;
+      params.noticeType = typeCode;
+      if (this.searchKeyword.trim().length > 0) {
+        params.keyword = this.searchKeyword.trim();
+      }
+      let requestUrl = `/notice/list?page=${params.page}&pageSize=${params.pageSize}&noticeType=${params.noticeType}`;
+      if (this.selectedRegionId > 0) {
+        requestUrl += `&regionId=${this.selectedRegionId}`;
+      }
+      if (params.keyword.length > 0) {
+        requestUrl += `&keyword=${encodeURIComponent(params.keyword)}`;
+      }
+      const response = await get<Object>(requestUrl);
+      if (response.code === 200) {
+        const data = response.data as Record<string, Object>;
+        const list = (data['list'] as Object[]) || [];
+        const mapped: NoticeItem[] = [];
+        for (let i = 0; i < list.length; i++) {
+          const row = list[i] as Record<string, Object>;
+          const payableId = String(row['id'] ?? '');
+          const noticeId = String(row['noticeId'] ?? '');
+          mapped.push({
+            id: payableId,
+            payableId: payableId,
+            noticeId: noticeId,
+            companyName: String(row['companyName'] ?? ''),
+            noticeType: String(row['noticeType'] ?? ''),
+            year: String(row['year'] ?? ''),
+            amount: Number(row['amount'] ?? 0),
+            status: String(row['status'] ?? '未生成'),
+            generateDate: String(row['generateDate'] ?? ''),
+            pdfUrl: ''
+          });
+        }
+        this.noticeList = mapped;
+        if (!this.searchKeyword.trim() && mapped.length === 0) {
+          const yearValue = String(data['year'] ?? '');
+          if (yearValue.length > 0) {
+            promptAction.showToast({ message: `${yearValue}年度暂无可生成通知单数据` });
+          }
+        }
+      } else {
+        this.noticeList = [];
+        promptAction.showToast({ message: response.message || '加载通知单失败' });
+      }
+    } catch (error) {
+      console.error('加载通知单管理列表失败:', error);
+      this.noticeList = [];
+      promptAction.showToast({ message: '加载通知单失败' });
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private async generateByPayableIds(payableIds: string[]): Promise<void> {
+    if (payableIds.length === 0) {
+      this.showToastSafe('请选择要生成的通知单');
+      return;
+    }
+    try {
+      this.actionLoading = true;
+      const typeCode = this.noticeType === 'payment' ? 1 : 2;
+      const requestData = new NoticeGenerateRequest();
+      requestData.payableIds = payableIds;
+      requestData.noticeType = typeCode;
+      console.info(`开始生成通知单: type=${typeCode}, payableIds=${JSON.stringify(payableIds)}`);
+      const response = await post('/notice/generate', requestData);
+      console.info(`生成通知单响应: code=${response.code}, message=${response.message}`);
+      if (response.code === 200) {
+        // 先本地更新，避免接口回刷失败时看起来“没反应”
+        const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        const updated: NoticeItem[] = [];
+        for (let i = 0; i < this.noticeList.length; i++) {
+          const n = this.noticeList[i];
+          if (payableIds.includes(n.payableId)) {
+            const updatedItem: NoticeItem = {
+              payableId: n.payableId,
+              noticeId: n.noticeId,
+              id: n.id,
+              companyName: n.companyName,
+              noticeType: n.noticeType,
+              year: n.year,
+              amount: n.amount,
+              status: '已生成',
+              generateDate: now,
+              pdfUrl: n.pdfUrl
+            };
+            updated.push(updatedItem);
+          } else {
+            updated.push(n);
+          }
+        }
+        this.noticeList = updated;
+        this.showToastSafe(response.message || '通知单生成成功');
+        this.selectedItems = [];
+        await this.loadNoticeList();
+      } else {
+        this.showToastSafe(response.message || '生成失败');
+      }
+    } catch (error) {
+      console.error('生成通知单失败:', error);
+      this.showToastSafe('生成通知单失败');
+    } finally {
+      this.actionLoading = false;
+    }
+  }
+
+  private async printByNoticeIds(noticeIds: string[]): Promise<void> {
+    try {
+      this.actionLoading = true;
+      const opened = await this.openNoticeDownload(noticeIds);
+      if (!opened) {
+        return;
+      }
+      const requestData = new NoticePrintRequest();
+      requestData.noticeIds = noticeIds;
+      console.info(`开始打印通知单: noticeIds=${JSON.stringify(noticeIds)}`);
+      const response = await post('/notice/print', requestData);
+      console.info(`打印通知单响应: code=${response.code}, message=${response.message}`);
+      if (response.code === 200) {
+        this.showToastSafe(response.message || '打印状态已更新');
+        this.selectedItems = [];
+        await this.loadNoticeList();
+      } else {
+        this.showToastSafe(response.message || '打印失败');
+      }
+    } catch (error) {
+      console.error('更新打印状态失败:', error);
+      this.showToastSafe('更新打印状态失败');
+    } finally {
+      this.actionLoading = false;
+    }
+  }
+
+  private async openNoticePdf(noticeId: string): Promise<boolean> {
+    const encodedId = encodeURIComponent(noticeId);
+    const requestPath = `/notice/preview?id=${encodedId}`;
+    const probe = await probeDownloadUrl(requestPath, false);
+    if (!probe.ok) {
+      this.showToastSafe(probe.message || 'PDF下载校验失败');
+      return false;
+    }
+    const url = buildAuthorizedGetUrlWithQuery(requestPath);
+    return this.openUrlByBrowser(url);
+  }
+
+  private async openNoticeDownload(noticeIds: string[]): Promise<boolean> {
+    if (noticeIds.length === 1) {
+      return this.openNoticePdf(noticeIds[0]);
+    }
+    const idsParam = noticeIds.join(',');
+    const encodedIds = encodeURIComponent(idsParam);
+    const requestPath = `/notice/downloadBatch?ids=${encodedIds}`;
+    const probe = await probeDownloadUrl(requestPath, true);
+    if (!probe.ok) {
+      this.showToastSafe(probe.message || 'ZIP下载校验失败');
+      return false;
+    }
+    const url = buildAuthorizedGetUrlWithQuery(requestPath);
+    return this.openUrlByBrowser(url);
+  }
+
+  private async openUrlByBrowser(url: string): Promise<boolean> {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const want: Want = {
+        action: 'ohos.want.action.viewData',
+        entities: ['entity.system.browsable'],
+        uri: url
+      };
+      await context.startAbility(want);
+      return true;
+    } catch (error) {
+      console.error('打开浏览器失败:', error);
+      return false;
+    }
+  }
+
+  private showToastSafe(message: string): void {
+    try {
+      promptAction.showToast({ message });
+    } catch (e) {
+      console.error('toast失败:', e);
+    }
+  }
+
 }

@@ -49,6 +49,9 @@ public class LoginInterceptor implements HandlerInterceptor {
 
         System.out.println("=== 需要验证Token: " + uri + " ===");
         String token = request.getHeader("Authorization");
+        if (token == null || token.isEmpty()) {
+            token = request.getParameter("token");
+        }
 
         if (token == null || token.isEmpty()) {
             System.out.println("=== Token为空，拒绝访问 ===");

@@ -7,12 +7,12 @@ public interface CollectionService {
     /**
      * 获取征收统计
      */
-    Result<?> getStatistics(Integer year);
+    Result<?> getStatistics(Integer year, Long regionId);
     
     /**
      * 获取征收列表
      */
-    Result<?> getList(Integer year, String status, String keyword, Integer pageNum, Integer pageSize);
+    Result<?> getList(Integer year, String status, String keyword, Integer pageNum, Integer pageSize, Long regionId);
     
     /**
      * 缴款核销

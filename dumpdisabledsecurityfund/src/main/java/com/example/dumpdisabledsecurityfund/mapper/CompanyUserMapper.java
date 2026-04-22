@@ -14,6 +14,8 @@ public interface CompanyUserMapper {
 
     CompanyUser selectByUsername(@Param("username") String username);
 
+    List<CompanyUser> selectAll();
+
     List<CompanyUser> selectByCompanyId(@Param("companyId") Long companyId);
 
     List<CompanyUser> selectByCompanyIdAndStatus(@Param("companyId") Long companyId, @Param("status") Integer status);

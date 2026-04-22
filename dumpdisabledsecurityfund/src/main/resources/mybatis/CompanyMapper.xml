@@ -33,6 +33,22 @@
         SELECT * FROM company WHERE id = #{id}
     </select>
 
+    <select id="selectInfoMapById" resultType="java.util.HashMap">
+        SELECT
+            id AS id,
+            name AS name,
+            unified_social_credit_code AS creditCode,
+            industry AS industry,
+            establish_date AS establishDate,
+            address AS address,
+            legal_person AS legalPerson,
+            contact_phone AS contactPhone,
+            employee_count AS employeeCount,
+            status AS status
+        FROM company
+        WHERE id = #{id}
+    </select>
+
     <select id="selectByCreditCode" resultMap="BaseResultMap">
         SELECT * FROM company WHERE unified_social_credit_code = #{creditCode} LIMIT 1
     </select>
@@ -93,6 +109,34 @@
     <select id="countCompanies" resultType="long">
         SELECT COUNT(*) FROM company
         <where>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                OR unified_social_credit_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="selectCompaniesWithPageForLeader" resultMap="BaseResultMap">
+        SELECT * FROM company
+        <where>
+            <if test="regionId != null">
+                AND region_id = #{regionId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                OR unified_social_credit_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countCompaniesForLeader" resultType="long">
+        SELECT COUNT(*) FROM company
+        <where>
+            <if test="regionId != null">
+                AND region_id = #{regionId}
+            </if>
             <if test="keyword != null and keyword != ''">
                 AND (name LIKE CONCAT('%', #{keyword}, '%')
                 OR unified_social_credit_code LIKE CONCAT('%', #{keyword}, '%'))

@@ -25,5 +25,11 @@ public interface NoticeMapper {
 
     int updateSendStatus(@Param("id") Long id, @Param("sendStatus") Integer sendStatus);
 
-    int incrementPrintCount(@Param("id") Long id);
+    int incrementPrintCount(@Param("id") Long id, @Param("printTime") String printTime);
+
+    Notice selectByNoticeNumber(@Param("noticeNumber") String noticeNumber);
+
+    Notice selectLatestByCompanyTypeAndYear(@Param("companyId") Long companyId,
+                                            @Param("noticeType") Integer noticeType,
+                                            @Param("noticeNumberYearPrefix") String noticeNumberYearPrefix);
 }

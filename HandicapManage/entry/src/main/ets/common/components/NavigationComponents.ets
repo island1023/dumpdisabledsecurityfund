@@ -9,6 +9,7 @@ interface TabItemData {
 
 // 区级数据类型
 interface DistrictItem {
+  id?: number;
   code: string;
   name: string;
 }

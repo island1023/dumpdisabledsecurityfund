@@ -9,6 +9,10 @@
         <result column="year" property="year"/>
         <result column="employee_name" property="employeeName"/>
         <result column="id_card" property="idCard"/>
+        <result column="disability_type" property="disabilityType"/>
+        <result column="disability_level" property="disabilityLevel"/>
+        <result column="hire_date" property="hireDate"/>
+        <result column="attachment" property="attachment"/>
         <result column="audit_status" property="auditStatus"/>
         <result column="auditor_id" property="auditorId"/>
         <result column="audit_time" property="auditTime"/>
@@ -17,9 +21,11 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO disabled_audit(
             company_id, year, employee_name, id_card,
+            disability_type, disability_level, hire_date, attachment,
             audit_status, auditor_id, audit_time
         ) VALUES(
                     #{companyId}, #{year}, #{employeeName}, #{idCard},
+                    #{disabilityType}, #{disabilityLevel}, #{hireDate}, #{attachment},
                     #{auditStatus}, #{auditorId}, #{auditTime}
                 )
     </insert>
@@ -53,6 +59,10 @@
     <update id="updateById">
         UPDATE disabled_audit
         <set>
+            <if test="disabilityType != null">disability_type = #{disabilityType},</if>
+            <if test="disabilityLevel != null">disability_level = #{disabilityLevel},</if>
+            <if test="hireDate != null">hire_date = #{hireDate},</if>
+            <if test="attachment != null">attachment = #{attachment},</if>
             <if test="auditStatus != null">audit_status = #{auditStatus},</if>
             <if test="auditorId != null">auditor_id = #{auditorId},</if>
             <if test="auditTime != null">audit_time = #{auditTime},</if>

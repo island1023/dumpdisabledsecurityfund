@@ -15,4 +15,6 @@ public class SysUserCreateDTO {
     private String role;
 
     private String district;
+
+    private Long companyId;
 }

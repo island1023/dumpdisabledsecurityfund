@@ -230,6 +230,10 @@ public class AuthServiceImpl implements AuthService {
         claims.put("username", user.getUsername());
         claims.put("accountType", "sys");
         claims.put("roleCodes", roleCodes);
+        claims.put("regionId", user.getRegionId());
+        claims.put("adminLevel", user.getAdminLevel());
+        claims.put("userType", user.getUserType());
+        claims.put("primaryRole", convertToRoleCode(user));
         String token = JwtUtil.createToken(claims);
 
         String now = DateUtil.now();

@@ -1,5 +1,6 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
 import { CollectionService } from '../../services/CollectionService';
+import { promptAction } from '@kit.ArkUI';
 
 interface CollectionItem {
   id: string;
@@ -14,6 +15,7 @@ interface CollectionItem {
   creditCode?: string;
   registerAddress?: string;
   legalPerson?: string;
+  totalEmployeeCount?: number;
   employeeCount?: number;
   establishDate?: string;
   phone?: string;
@@ -29,6 +31,10 @@ interface StatisticsData {
   paidAmount: number;
 }
 
+class YearSelectOption {
+  value: string = '';
+}
+
 enum CollectionSheetType {
   NONE,
   DETAIL,
@@ -37,19 +43,28 @@ enum CollectionSheetType {
 
 @Component
 export struct CollectionPage {
+  @Prop @Watch('onScopeChanged') selectedRegionId: number = 0;
   @State searchKeyword: string = '';
-  @State selectedYear: number = new Date().getFullYear();
+  @State selectedYear: number = 2026;
   @State isSheetShow: boolean = false;
   @State activeSheet: CollectionSheetType = CollectionSheetType.NONE;
   @State selectedCollection: CollectionItem | null = null;
+  @State selectedCollectionId: string = '';
   @State voucherInput: string = '';
   @State verifyReason: string = '';
+  @State verifying: boolean = false;
   @State filterStatus: string = 'all';
   @State collectionList: CollectionItem[] = [];
   @State isLoading: boolean = false;
   @State statistics: StatisticsData = { totalUnits: 0, paidUnits: 0, unpaidUnits: 0, totalAmount: 0, paidAmount: 0 };
+  private readonly availableYears: number[] = [2026, 2025, 2024, 2023, 2022];
 
   aboutToAppear() {
+    this.loadCollectionList();
+    this.loadStatistics();
+  }
+
+  private onScopeChanged(): void {
     this.loadCollectionList();
     this.loadStatistics();
   }
@@ -59,7 +74,8 @@ export struct CollectionPage {
     try {
       const result = await CollectionService.getCollectionList({
         year: this.selectedYear,
-        status: this.filterStatus === 'all' ? undefined : this.filterStatus,
+        status: undefined,
+        regionId: this.selectedRegionId > 0 ? this.selectedRegionId : undefined,
         keyword: this.searchKeyword || undefined,
         pageNum: 1,
         pageSize: 50
@@ -67,19 +83,43 @@ export struct CollectionPage {
       const mappedList: CollectionItem[] = [];
       for (let i = 0; i < result.list.length; i++) {
         const item = result.list[i];
+        let normalizedEmployeeCount = item.employeeCount || 0;
+        const normalizedDisabledCount = item.disabledEmployeeCount || 0;
+        // 防止出现“在职职工数 < 残疾职工数”的展示矛盾
+        if (normalizedEmployeeCount < normalizedDisabledCount) {
+          normalizedEmployeeCount = normalizedDisabledCount;
+        }
         mappedList.push({
           id: item.id,
-          companyName: item.unitName,
+          companyName: item.unitName || '',
           year: item.year + '年',
-          disabledCount: item.disabledEmployeeCount,
+          disabledCount: normalizedDisabledCount,
           payableAmount: item.payableAmount,
           paidAmount: item.paidAmount,
           status: this.convertStatus(item.status),
           taxDataMatch: item.status === 'PAID',
-          voucher: item.paidAmount >= item.payableAmount ? 'TX' + Date.now() : undefined
+          voucher: item.paidAmount >= item.payableAmount ? 'TX' + Date.now() : undefined,
+          creditCode: item.creditCode || '',
+          registerAddress: item.registerAddress || '',
+          legalPerson: item.legalPerson || '',
+          totalEmployeeCount: item.totalEmployeeCount || normalizedEmployeeCount,
+          employeeCount: normalizedEmployeeCount,
+          establishDate: item.establishDate || '',
+          phone: item.phone || ''
         });
       }
-      this.collectionList = mappedList;
+      if (this.filterStatus === 'unpaid') {
+        const unpaidList: CollectionItem[] = [];
+        for (let i = 0; i < mappedList.length; i++) {
+          const current = mappedList[i];
+          if (current.status === '未缴' || current.status === '部分缴纳') {
+            unpaidList.push(current);
+          }
+        }
+        this.collectionList = unpaidList;
+      } else {
+        this.collectionList = mappedList;
+      }
     } catch (error) {
       console.error('加载征收列表失败:', error);
     } finally {
@@ -89,7 +129,10 @@ export struct CollectionPage {
 
   async loadStatistics() {
     try {
-      const stats = await CollectionService.getCollectionStatistics(this.selectedYear);
+      const stats = await CollectionService.getCollectionStatistics(
+        this.selectedYear,
+        this.selectedRegionId > 0 ? this.selectedRegionId : undefined
+      );
       const statsData: StatisticsData = {
         totalUnits: stats.totalUnits,
         paidUnits: stats.paidUnits,
@@ -105,7 +148,7 @@ export struct CollectionPage {
 
   private convertStatus(status: string): string {
     const statusMap: Record<string, string> = {
-      'PAID': '已缴',
+      'PAID': '已核销',
       'UNPAID': '未缴',
       'PARTIAL': '部分缴纳'
     };
@@ -119,15 +162,6 @@ export struct CollectionPage {
 
   build() {
     Column() {
-      // 统计卡片
-      Row() {
-        this.buildStatCard('应缴单位', this.statistics.totalUnits, '家', ColorConstants.PRIMARY)
-        this.buildStatCard('已缴单位', this.statistics.paidUnits, '家', ColorConstants.SUCCESS)
-        this.buildStatCard('应缴金额', this.statistics.totalAmount / 10000, '万元', ColorConstants.WARNING)
-      }
-      .width('100%')
-      .margin({ bottom: 16 })
-
       // 筛选条件
       Row() {
         Text('筛选：')
@@ -173,23 +207,20 @@ export struct CollectionPage {
             .fontColor(ColorConstants.TEXT_SECONDARY)
             .margin({ right: 8 })
 
-          Row() {
-            ForEach([2025, 2024, 2023], (year: number) => {
-              Text(year.toString())
-                .fontSize(14)
-                .fontColor(this.selectedYear === year ? ColorConstants.PRIMARY : ColorConstants.TEXT_SECONDARY)
-                .fontWeight(this.selectedYear === year ? FontWeight.Medium : FontWeight.Normal)
-                .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-                .backgroundColor(this.selectedYear === year ? 'rgba(199, 28, 34, 0.1)' : ColorConstants.BG_PAGE)
-                .borderRadius(16)
-                .margin({ right: 8 })
-                .onClick(() => {
-                  this.selectedYear = year;
-                  this.loadCollectionList();
-                  this.loadStatistics();
-                })
+          Select(this.getYearOptions())
+            .selected(this.getSelectedYearIndex())
+            .value(`${this.selectedYear}`)
+            .font({ size: 14 })
+            .height(36)
+            .width(120)
+            .backgroundColor(ColorConstants.BG_PAGE)
+            .onSelect((index: number) => {
+              if (index >= 0 && index < this.availableYears.length) {
+                this.selectedYear = this.availableYears[index];
+                this.loadCollectionList();
+                this.loadStatistics();
+              }
             })
-          }
         }
         .layoutWeight(1)
 
@@ -336,7 +367,7 @@ export struct CollectionPage {
                       this.openSheet(CollectionSheetType.DETAIL);
                     })
 
-                  if (item.status !== '已缴') {
+                  if (item.status !== '已核销') {
                     Button('核销')
                       .layoutWeight(1)
                       .height(36)
@@ -346,10 +377,7 @@ export struct CollectionPage {
                       .borderRadius(6)
                       .margin({ left: 8 })
                       .onClick(() => {
-                        this.selectedCollection = item;
-                        this.voucherInput = '';
-                        this.verifyReason = '';
-                        this.openSheet(CollectionSheetType.VERIFY);
+                        this.openVerifySheet(item);
                       })
                   }
                 }
@@ -389,6 +417,7 @@ export struct CollectionPage {
         this.isSheetShow = false;
         this.activeSheet = CollectionSheetType.NONE;
         this.selectedCollection = null;
+        this.selectedCollectionId = '';
         this.voucherInput = '';
       }
     })
@@ -415,7 +444,7 @@ export struct CollectionPage {
         .margin({ bottom: 8 })
 
       Row() {
-        Text(value.toFixed(1))
+        Text(unit === '家' ? `${Math.round(value)}` : value.toFixed(1))
           .fontSize(24)
           .fontColor(color)
           .fontWeight(FontWeight.Bold)
@@ -555,7 +584,7 @@ export struct CollectionPage {
               .borderRadius(8)
               .margin({ left: 8 })
               .onClick(() => {
-                this.handleConfirmVerify();
+                void this.handleConfirmVerify();
               })
           }
           .width('100%')
@@ -569,7 +598,7 @@ export struct CollectionPage {
 
   private getStatusColor(status: string): string {
     switch (status) {
-      case '已缴':
+      case '已核销':
         return ColorConstants.SUCCESS;
       case '未缴':
         return ColorConstants.WARNING;
@@ -582,7 +611,7 @@ export struct CollectionPage {
 
   private getStatusBgColor(status: string): string {
     switch (status) {
-      case '已缴':
+      case '已核销':
         return 'rgba(0, 158, 95, 0.1)';
       case '未缴':
         return 'rgba(245, 158, 11, 0.1)';
@@ -594,26 +623,78 @@ export struct CollectionPage {
   }
 
   private async handleConfirmVerify() {
-    if (!this.verifyReason.trim()) {
-      console.log('请填写核销理由');
+    if (this.verifying) {
       return;
     }
 
-    if (this.selectedCollection) {
+    const current = this.selectedCollection;
+    const currentId = this.selectedCollectionId;
+    if (current && currentId.length > 0) {
       try {
+        this.verifying = true;
+        this.showToastSafe('正在提交核销...');
+        const finalReason = this.verifyReason.trim().length > 0 ? this.verifyReason.trim() : '区管理员核销';
+        const remainingAmount = Math.max(0, current.payableAmount - current.paidAmount);
+        if (remainingAmount <= 0) {
+          this.showToastSafe('该记录无待核销金额');
+          return;
+        }
         await CollectionService.verifyPayment(
-          this.selectedCollection.id,
-          this.selectedCollection.payableAmount - this.selectedCollection.paidAmount,
-          this.voucherInput
+          currentId,
+          remainingAmount,
+          this.voucherInput,
+          finalReason
         );
-        this.loadCollectionList();
-        this.loadStatistics();
+        await this.loadCollectionList();
+        await this.loadStatistics();
         this.isSheetShow = false;
+        this.showToastSafe('核销成功');
       } catch (error) {
         console.error('核销失败:', error);
+        this.showToastSafe('核销失败，请重试');
+      } finally {
+        this.verifying = false;
       }
+    } else {
+      this.showToastSafe('未选择核销记录');
     }
   }
+
+  private openVerifySheet(item: CollectionItem): void {
+    this.selectedCollection = item;
+    this.selectedCollectionId = item.id;
+    this.voucherInput = '';
+    this.verifyReason = '';
+    this.openSheet(CollectionSheetType.VERIFY);
+  }
+
+  private showToastSafe(message: string): void {
+    try {
+      promptAction.showToast({ message: message });
+    } catch (error) {
+      console.warn('Toast显示失败:', error);
+    }
+  }
+
+  private getYearOptions(): YearSelectOption[] {
+    const options: YearSelectOption[] = [];
+    for (let i = 0; i < this.availableYears.length; i++) {
+      const option = new YearSelectOption();
+      option.value = `${this.availableYears[i]}年`;
+      options.push(option);
+    }
+    return options;
+  }
+
+  private getSelectedYearIndex(): number {
+    for (let i = 0; i < this.availableYears.length; i++) {
+      if (this.availableYears[i] === this.selectedYear) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
 
   @Builder
   buildDetailDialog() {

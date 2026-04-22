@@ -46,6 +46,7 @@ class RejectApprovalRequestData {
 
 @Component
 export struct ApprovalPendingPage {
+  @Prop @Watch('onScopeChanged') selectedRegionId: number = 0;
   @State searchKeyword: string = '';
   @State activeTab: string = 'all';
   @State isSheetShow: boolean = false;
@@ -65,6 +66,10 @@ export struct ApprovalPendingPage {
     this.loadApprovalList();
   }
 
+  private onScopeChanged(): void {
+    this.loadApprovalList();
+  }
+
   async loadApprovalList() {
     this.isLoading = true;
     try {
@@ -73,6 +78,9 @@ export struct ApprovalPendingPage {
       params.pageSize = 50;
       if (this.activeTab !== 'all') {
         params.type = this.activeTab;
+      }
+      if (this.selectedRegionId > 0) {
+        params.regionId = this.selectedRegionId;
       }
       const response = await get<ApprovalResponseData>('/approval/pending', params);
       if (response.code === 200) {
@@ -88,6 +96,21 @@ export struct ApprovalPendingPage {
   private openSheet(type: ApprovalSheetType) {
     this.activeSheet = type;
     this.isSheetShow = true;
+  }
+
+  private async openDetailSheet(item: ApprovalItem): Promise<void> {
+    try {
+      const response = await get<ApprovalItem>(`/approval/${item.id}`);
+      if (response.code === 200) {
+        this.selectedApproval = response.data;
+      } else {
+        this.selectedApproval = item;
+      }
+    } catch (error) {
+      console.error('加载审批详情失败:', error);
+      this.selectedApproval = item;
+    }
+    this.openSheet(ApprovalSheetType.DETAIL);
   }
 
   build() {
@@ -299,8 +322,7 @@ export struct ApprovalPendingPage {
               })
               .margin({ bottom: 12 })
               .onClick(() => {
-                this.selectedApproval = item;
-                this.openSheet(ApprovalSheetType.DETAIL);
+                void this.openDetailSheet(item);
               })
             })
           }
@@ -823,4 +845,5 @@ export struct ApprovalPendingPage {
       console.log('请填写驳回理由');
     }
   }
+
 }

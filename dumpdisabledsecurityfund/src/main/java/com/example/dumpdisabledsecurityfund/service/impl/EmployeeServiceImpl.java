@@ -5,8 +5,10 @@ import com.example.dumpdisabledsecurityfund.common.PageResult;
 import com.example.dumpdisabledsecurityfund.common.Result;
 import com.example.dumpdisabledsecurityfund.entity.CompanyDisabledEmployee;
 import com.example.dumpdisabledsecurityfund.entity.CompanyEmployee;
+import com.example.dumpdisabledsecurityfund.entity.DisabledAudit;
 import com.example.dumpdisabledsecurityfund.mapper.CompanyDisabledEmployeeMapper;
 import com.example.dumpdisabledsecurityfund.mapper.CompanyEmployeeMapper;
+import com.example.dumpdisabledsecurityfund.mapper.DisabledAuditMapper;
 import com.example.dumpdisabledsecurityfund.service.EmployeeService;
 import com.example.dumpdisabledsecurityfund.util.DateUtil;
 import com.example.dumpdisabledsecurityfund.util.ExcelUtil;
@@ -31,6 +33,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private CompanyDisabledEmployeeMapper companyDisabledEmployeeMapper;
     @Resource
     private CompanyEmployeeMapper employeeMapper;
+    @Resource
+    private DisabledAuditMapper disabledAuditMapper;
 
     private static final Pattern ID_CARD_PATTERN = Pattern.compile("^[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])\\d{3}[\\dXx]$");
 
@@ -101,8 +105,24 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
 
         List<CompanyEmployee> employees = employeeMapper.selectByCompanyId(companyId);
+        List<CompanyDisabledEmployee> disabledEmployees = companyDisabledEmployeeMapper.selectByCompanyIdAndStatus(companyId, 1);
+        Set<String> disabledIdCards = disabledEmployees.stream()
+                .map(CompanyDisabledEmployee::getIdCard)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
-        List<Map<String, Object>> result = employees.stream().map(emp -> {
+        List<DisabledAudit> audits = disabledAuditMapper.selectByCompanyId(companyId);
+        Set<String> pendingIdCards = audits.stream()
+                .filter(a -> a.getAuditStatus() != null && a.getAuditStatus() == 0)
+                .map(DisabledAudit::getIdCard)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<CompanyEmployee> nonDisabledEmployees = employees.stream()
+                .filter(emp -> emp.getIdCard() == null || (!disabledIdCards.contains(emp.getIdCard()) && !pendingIdCards.contains(emp.getIdCard())))
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> result = nonDisabledEmployees.stream().map(emp -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", emp.getId());
             map.put("name", emp.getName());
@@ -125,14 +145,30 @@ public class EmployeeServiceImpl implements EmployeeService {
         Map<String, Object> reqMap = (Map<String, Object>) request;
         String mode = (String) reqMap.get("mode");
 
+        Long companyId = getCurrentCompanyId();
+        if (companyId == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+
         if ("manual".equals(mode)) {
             @SuppressWarnings("unchecked")
             Map<String, Object> employeeData = (Map<String, Object>) reqMap.get("employee");
+            if (employeeData == null) {
+                return Result.error("employee 参数不能为空");
+            }
+            String name = employeeData.get("name") == null ? "" : employeeData.get("name").toString().trim();
+            String idCard = employeeData.get("idCard") == null ? "" : employeeData.get("idCard").toString().trim();
+            if (name.isEmpty()) {
+                return Result.error("姓名不能为空");
+            }
+            if (idCard.isEmpty()) {
+                return Result.error("身份证号不能为空");
+            }
 
             CompanyEmployee employee = new CompanyEmployee();
-            employee.setCompanyId(getCurrentCompanyId());
-            employee.setName((String) employeeData.get("name"));
-            employee.setIdCard((String) employeeData.get("idCard"));
+            employee.setCompanyId(companyId);
+            employee.setName(name);
+            employee.setIdCard(idCard);
             employee.setJobPosition((String) employeeData.get("jobPosition"));
             employee.setEntryDate((String) employeeData.get("hireDate"));
             employee.setIsActive(1);
@@ -143,6 +179,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 
             Map<String, Object> result = new HashMap<>();
             result.put("id", employee.getId());
+            result.put("companyId", companyId);
+            // 返回新增后的统计口径（同一数据源下计算），便于前端核对“写入成功但统计没变”的问题
+            long totalRecords = employeeMapper.countEmployees(companyId);
+            long activeCount = employeeMapper.countActiveByCompanyId(companyId);
+            result.put("totalEmployeeRecords", totalRecords);
+            result.put("activeEmployeeCount", activeCount);
             return Result.success("添加成功", result);
         } else {
             return Result.success("批量导入请使用导入接口");
@@ -169,31 +211,145 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         String disabilityType = (String) reqMap.get("disabilityType");
         String disabilityLevel = (String) reqMap.get("disabilityLevel");
+        Long companyId = getCurrentCompanyId();
+        if (companyId == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+
+        List<CompanyDisabledEmployee> disabledEmployees = companyDisabledEmployeeMapper.selectByCompanyIdAndStatus(companyId, 1);
+        Set<String> disabledIdCards = disabledEmployees.stream()
+                .map(CompanyDisabledEmployee::getIdCard)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         int successCount = 0;
         for (Object empIdObj : employeeIds) {
             Long empId = Long.valueOf(empIdObj.toString());
 
             CompanyEmployee normalEmp = employeeMapper.selectById(empId);
-            if (normalEmp != null) {
+            if (normalEmp != null && companyId.equals(normalEmp.getCompanyId())) {
+                if (normalEmp.getIdCard() != null && disabledIdCards.contains(normalEmp.getIdCard())) {
+                    continue;
+                }
                 CompanyDisabledEmployee disabledEmp = new CompanyDisabledEmployee();
                 disabledEmp.setCompanyId(normalEmp.getCompanyId());
                 disabledEmp.setName(normalEmp.getName());
                 disabledEmp.setIdCard(normalEmp.getIdCard());
+                // 数据库 disability_cert_no 为 NOT NULL，这里生成一个可追踪的证号占位值
+                disabledEmp.setDisabilityCertNo(buildDisabilityCertNo(normalEmp));
                 disabledEmp.setDisabilityType(disabilityType);
                 disabledEmp.setDisabilityLevel(disabilityLevel);
                 disabledEmp.setJobPosition(normalEmp.getJobPosition());
                 disabledEmp.setEntryDate(normalEmp.getEntryDate());
                 disabledEmp.setIsActive(1);
+                disabledEmp.setAuditPassTime(DateUtil.now());
                 disabledEmp.setCreateTime(DateUtil.now());
                 disabledEmp.setUpdateTime(DateUtil.now());
 
                 companyDisabledEmployeeMapper.insert(disabledEmp);
+                if (normalEmp.getIdCard() != null) {
+                    disabledIdCards.add(normalEmp.getIdCard());
+                }
                 successCount++;
             }
         }
 
         return Result.success("成功设置" + successCount + "名残疾职工");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Result<?> submitDisabledAuditApplications(Object request) {
+        if (!(request instanceof Map)) {
+            return Result.error("请求参数格式错误");
+        }
+        Long companyId = getCurrentCompanyId();
+        if (companyId == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> reqMap = (Map<String, Object>) request;
+        @SuppressWarnings("unchecked")
+        List<Object> employeeIds = (List<Object>) reqMap.get("employeeIds");
+        String disabilityType = reqMap.get("disabilityType") == null ? "待补录" : String.valueOf(reqMap.get("disabilityType"));
+        String disabilityLevel = reqMap.get("disabilityLevel") == null ? "待补录" : String.valueOf(reqMap.get("disabilityLevel"));
+        String attachment = reqMap.get("attachment") == null ? "" : String.valueOf(reqMap.get("attachment"));
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return Result.error("请选择要申请的职工");
+        }
+
+        List<CompanyDisabledEmployee> disabledEmployees = companyDisabledEmployeeMapper.selectByCompanyIdAndStatus(companyId, 1);
+        Set<String> disabledIdCards = disabledEmployees.stream()
+                .map(CompanyDisabledEmployee::getIdCard)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<DisabledAudit> audits = disabledAuditMapper.selectByCompanyId(companyId);
+        Set<String> pendingIdCards = audits.stream()
+                .filter(a -> a.getAuditStatus() != null && a.getAuditStatus() == 0)
+                .map(DisabledAudit::getIdCard)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        int successCount = 0;
+        String now = DateUtil.now();
+        int year = Integer.parseInt(now.substring(0, 4));
+        for (Object empIdObj : employeeIds) {
+            Long empId = Long.valueOf(empIdObj.toString());
+            CompanyEmployee employee = employeeMapper.selectById(empId);
+            if (employee == null || !companyId.equals(employee.getCompanyId())) {
+                continue;
+            }
+            if (employee.getIdCard() != null && (disabledIdCards.contains(employee.getIdCard()) || pendingIdCards.contains(employee.getIdCard()))) {
+                continue;
+            }
+
+            DisabledAudit audit = new DisabledAudit();
+            audit.setCompanyId(companyId);
+            audit.setYear(year);
+            audit.setEmployeeName(employee.getName());
+            audit.setIdCard(employee.getIdCard());
+            audit.setDisabilityType(disabilityType);
+            audit.setDisabilityLevel(disabilityLevel);
+            audit.setHireDate(employee.getEntryDate());
+            audit.setAttachment(attachment);
+            audit.setAuditStatus(0);
+            audit.setAuditTime(now);
+            disabledAuditMapper.insert(audit);
+            if (employee.getIdCard() != null) {
+                pendingIdCards.add(employee.getIdCard());
+            }
+            successCount++;
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("successCount", successCount);
+        return Result.success("成功提交" + successCount + "条残疾职工审核申请", result);
+    }
+
+    @Override
+    public Result<?> getDisabledAuditApplications() {
+        Long companyId = getCurrentCompanyId();
+        if (companyId == null) {
+            return Result.error("未登录或不是企业用户");
+        }
+        List<DisabledAudit> audits = disabledAuditMapper.selectByCompanyId(companyId);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int i = 0; i < audits.size(); i++) {
+            DisabledAudit audit = audits.get(i);
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", audit.getId());
+            map.put("name", audit.getEmployeeName());
+            map.put("idCard", maskIdCard(audit.getIdCard()));
+            map.put("disabilityType", audit.getDisabilityType());
+            map.put("disabilityLevel", audit.getDisabilityLevel());
+            map.put("hireDate", audit.getHireDate());
+            map.put("attachment", audit.getAttachment());
+            map.put("status", getAuditStatusName(audit.getAuditStatus()));
+            map.put("date", audit.getAuditTime());
+            result.add(map);
+        }
+        return Result.success(result);
     }
 
     @Override
@@ -300,6 +456,13 @@ public class EmployeeServiceImpl implements EmployeeService {
         return idCard.substring(0, 3) + "***********" + idCard.substring(idCard.length() - 4);
     }
 
+    private String buildDisabilityCertNo(CompanyEmployee employee) {
+        String now = DateUtil.now();
+        String compact = now.replace("-", "").replace(":", "").replace(" ", "");
+        String suffix = employee.getId() == null ? "0000" : String.valueOf(employee.getId());
+        return "AUTO" + compact + suffix;
+    }
+
     private EmployeeListVO convertToEmployeeVO(CompanyEmployee emp) {
         EmployeeListVO vo = new EmployeeListVO();
         BeanUtils.copyProperties(emp, vo);
@@ -311,6 +474,18 @@ public class EmployeeServiceImpl implements EmployeeService {
         vo.setIdCard(maskIdCard(emp.getIdCard()));
 
         return vo;
+    }
+
+    private String getAuditStatusName(Integer status) {
+        if (status == null) {
+            return "审批中";
+        }
+        switch (status) {
+            case 0: return "审批中";
+            case 1: return "已通过";
+            case 2: return "已驳回";
+            default: return "未知";
+        }
     }
 }
 

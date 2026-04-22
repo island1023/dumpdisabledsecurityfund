@@ -12,6 +12,7 @@ public class CollectionVO {
     private String registerAddress;
     private String establishDate;
     private String phone;
+    private Integer totalEmployeeCount;
     private Integer employeeCount;
     private Integer disabledCount;
     private Integer year;

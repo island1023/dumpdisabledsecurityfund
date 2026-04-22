@@ -34,6 +34,11 @@
         SELECT * FROM company_user WHERE username = #{username} LIMIT 1
     </select>
 
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM company_user
+        ORDER BY id DESC
+    </select>
+
     <select id="selectByCompanyId" resultMap="BaseResultMap">
         SELECT * FROM company_user
         WHERE company_id = #{companyId}

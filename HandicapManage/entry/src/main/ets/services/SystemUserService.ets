@@ -6,6 +6,7 @@ class UserUpsertRequestData {
   realName?: string;
   role?: string;
   district?: string;
+  companyId?: number;
   status?: string;
 }
 
@@ -37,6 +38,11 @@ interface AddUserResponse {
   id: string;
   username: string;
   password: string;
+}
+
+export interface CompanyOption {
+  id: string;
+  name: string;
 }
 
 /**
@@ -83,7 +89,7 @@ export class SystemUserService {
   /**
    * 新增用户
    */
-  static async addUser(user: Partial<User>): Promise<AddUserResponse> {
+  static async addUser(user: Partial<User>, companyId?: string): Promise<AddUserResponse> {
     console.log('=== SystemUserService.addUser 开始 ===');
     console.log('传入参数:', JSON.stringify(user));
     
@@ -99,6 +105,9 @@ export class SystemUserService {
     }
     if (user.districtName) {
       requestData.district = user.districtName;
+    }
+    if (companyId && companyId.trim().length > 0) {
+      requestData.companyId = Number(companyId);
     }
     
     console.log('构建的请求数据:', JSON.stringify(requestData));
@@ -124,6 +133,29 @@ export class SystemUserService {
         throw new Error(String(error));
       }
     }
+  }
+
+  static async getCompanyOptions(keyword: string = ''): Promise<CompanyOption[]> {
+    const queryParams: Record<string, string | number | boolean> = {};
+    queryParams.pageNum = 1;
+    queryParams.pageSize = 200;
+    if (keyword.trim().length > 0) {
+      queryParams.keyword = keyword;
+    }
+    const response = await get<Record<string, Object>>('/company/list', queryParams);
+    if (response.code !== 200) {
+      throw new Error(response.message || '获取单位列表失败');
+    }
+    const list = response.data.list as Array<Record<string, Object>>;
+    const result: CompanyOption[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      result.push({
+        id: String(item.id || ''),
+        name: String(item.name || '')
+      });
+    }
+    return result;
   }
 
   /**

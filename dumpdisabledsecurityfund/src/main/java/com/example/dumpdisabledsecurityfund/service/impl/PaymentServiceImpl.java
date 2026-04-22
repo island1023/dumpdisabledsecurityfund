@@ -34,70 +34,118 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public Result<?> getPaymentStatistics() {
-        Long companyId = getCurrentCompanyId();
-        if (companyId == null) {
-            return Result.error("未登录或不是企业用户");
-        }
+        try {
+            Long companyId = getCurrentCompanyId();
+            if (companyId == null) {
+                return Result.error("未登录或不是企业用户");
+            }
 
-        int currentYear = java.time.Year.now().getValue();
+            int currentYear = java.time.Year.now().getValue();
+            PayableAmount payable = payableAmountMapper.selectByCompanyAndYear(companyId, currentYear);
+            if (payable == null || payable.getId() == null) {
+                PaymentStatisticsVO empty = new PaymentStatisticsVO();
+                empty.setPaidAmount(0D);
+                empty.setPendingAmount(0D);
+                empty.setTotalAmount(0D);
+                empty.setYear(currentYear);
+                return Result.success(empty);
+            }
 
-        List<PayableAmount> payableList = payableAmountMapper.selectByCompanyId(companyId);
-
-        double totalAmount = 0;
-        double paidAmount = 0;
-
-        for (PayableAmount payable : payableList) {
-            if (payable.getYear() == currentYear) {
-                totalAmount += payable.getCalculatedAmount();
-
-                List<PaymentRecord> records = paymentRecordMapper.selectByPayableId(payable.getId());
-                for (PaymentRecord record : records) {
-                    if (record.getStatus() == 1) {
-                        paidAmount += record.getActualAmount();
-                    }
+            // 统一口径：应缴金额取 payable_amount（数据库核算/减免后的应缴），已缴金额取 payment_record 实际核销汇总
+            double totalAmount = payable.getPayableAmount() == null ? 0D : payable.getPayableAmount();
+            double paidAmount = 0D;
+            List<PaymentRecord> records = paymentRecordMapper.selectByPayableId(payable.getId());
+            for (PaymentRecord record : records) {
+                if (record != null && record.getStatus() != null && record.getStatus() == 1) {
+                    paidAmount += record.getActualAmount() == null ? 0D : record.getActualAmount();
                 }
             }
+
+            double pendingAmount = totalAmount - paidAmount;
+            if (pendingAmount < 0) {
+                pendingAmount = 0;
+            }
+
+            PaymentStatisticsVO vo = new PaymentStatisticsVO();
+            vo.setPaidAmount(paidAmount);
+            vo.setPendingAmount(pendingAmount);
+            vo.setTotalAmount(totalAmount);
+            vo.setYear(currentYear);
+
+            return Result.success(vo);
+        } catch (Exception e) {
+            return Result.error("获取缴费统计失败：" + e.getMessage());
         }
+    }
 
-        double pendingAmount = totalAmount - paidAmount;
-
-        PaymentStatisticsVO vo = new PaymentStatisticsVO();
-        vo.setPaidAmount(paidAmount);
-        vo.setPendingAmount(pendingAmount);
-        vo.setTotalAmount(totalAmount);
-        vo.setYear(currentYear);
-
-        return Result.success(vo);
+    /**
+     * 模拟外部税务平台返回本年度应缴金额。
+     * 这里按 companyId 做一个稳定的伪随机区间值，便于联调展示。
+     */
+    private double mockTaxPlatformPayableAmount(Long companyId, int year) {
+        long seed = (companyId == null ? 1L : companyId) * 131 + year * 17L;
+        double base = 180000D;
+        double offset = (seed % 90000L);
+        return base + offset;
     }
 
     @Override
     public Result<?> getPayments(Integer page, Integer pageSize) {
-        if (page == null || page < 1) page = 1;
-        if (pageSize == null || pageSize < 1) pageSize = 20;
+        try {
+            if (page == null || page < 1) page = 1;
+            if (pageSize == null || pageSize < 1) pageSize = 20;
 
+            Long companyId = getCurrentCompanyId();
+            if (companyId == null) {
+                return Result.error("未登录或不是企业用户");
+            }
+
+            int offset = (page - 1) * pageSize;
+            List<PaymentRecord> records = paymentRecordMapper.selectRecordsWithPage(companyId, offset, pageSize);
+            long total = paymentRecordMapper.countRecords(companyId);
+
+            List<Map<String, Object>> result = records.stream().map(record -> {
+                Map<String, Object> map = new HashMap<>();
+                if (record == null) {
+                    map.put("id", "");
+                    map.put("period", "");
+                    map.put("amount", "￥0.00");
+                    map.put("date", "");
+                    map.put("status", "待缴费");
+                    return map;
+                }
+                double amount = record.getActualAmount() == null ? 0 : record.getActualAmount();
+                map.put("id", record.getId());
+                map.put("period", record.getPaymentDate() == null ? "" : record.getPaymentDate());
+                map.put("amount", "￥" + String.format("%.2f", amount));
+                map.put("date", record.getPaymentDate() == null ? "" : record.getPaymentDate());
+                map.put("status", record.getStatus() != null && record.getStatus() == 1 ? "已缴费" : "待缴费");
+                return map;
+            }).collect(Collectors.toList());
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("total", total);
+            data.put("list", result);
+
+            return Result.success(data);
+        } catch (Exception e) {
+            return Result.error("获取缴费记录失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public Result<?> getMockTaxPlatformSummary() {
         Long companyId = getCurrentCompanyId();
         if (companyId == null) {
             return Result.error("未登录或不是企业用户");
         }
-
-        int offset = (page - 1) * pageSize;
-        List<PaymentRecord> records = paymentRecordMapper.selectRecordsWithPage(companyId, offset, pageSize);
-        long total = paymentRecordMapper.countRecords(companyId);
-
-        List<Map<String, Object>> result = records.stream().map(record -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", record.getId());
-            map.put("period", record.getPaymentDate());
-            map.put("amount", "￥" + String.format("%.2f", record.getActualAmount()));
-            map.put("date", record.getPaymentDate());
-            map.put("status", record.getStatus() == 1 ? "已缴费" : "待缴费");
-            return map;
-        }).collect(Collectors.toList());
-
+        int currentYear = java.time.Year.now().getValue();
+        double payable = mockTaxPlatformPayableAmount(companyId, currentYear);
         Map<String, Object> data = new HashMap<>();
-        data.put("total", total);
-        data.put("list", result);
-
+        data.put("source", "mock-tax-platform");
+        data.put("companyId", companyId);
+        data.put("year", currentYear);
+        data.put("payableAmount", payable);
         return Result.success(data);
     }
 

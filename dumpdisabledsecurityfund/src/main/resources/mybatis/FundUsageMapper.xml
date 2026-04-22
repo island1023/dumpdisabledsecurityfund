@@ -13,15 +13,20 @@
         <result column="audit_status" property="auditStatus"/>
         <result column="auditor_id" property="auditorId"/>
         <result column="audit_time" property="auditTime"/>
+        <result column="project_type" property="projectType"/>
+        <result column="beneficiary_count" property="beneficiaryCount"/>
+        <result column="usage_status" property="usageStatus"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO fund_usage(
             project_name, amount, usage_date, region_id, description,
-            audit_status, auditor_id, audit_time
+            audit_status, auditor_id, audit_time,
+            project_type, beneficiary_count, usage_status
         ) VALUES(
                     #{projectName}, #{amount}, #{usageDate}, #{regionId}, #{description},
-                    #{auditStatus}, #{auditorId}, #{auditTime}
+                    #{auditStatus}, #{auditorId}, #{auditTime},
+                    #{projectType}, #{beneficiaryCount}, #{usageStatus}
                 )
     </insert>
 
@@ -46,19 +51,42 @@
         ORDER BY usage_date DESC
     </select>
 
+    <select id="selectLeaderFundUsage" resultMap="BaseResultMap">
+        SELECT * FROM fund_usage
+        <where>
+            audit_status = 1
+            <if test="regionId != null">
+                AND region_id = #{regionId}
+            </if>
+            <if test="projectType != null and projectType != ''">
+                AND project_type = #{projectType}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND project_name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY usage_date DESC, id DESC
+    </select>
+
     <select id="sumAmountByYear" resultType="java.lang.Double">
         SELECT IFNULL(SUM(amount), 0)
         FROM fund_usage
-        WHERE YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d %H:%i:%s')) = #{year}
-          AND audit_status = 1
+        WHERE audit_status = 1
+          AND (
+            YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d %H:%i:%s')) = #{year}
+            OR YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d')) = #{year}
+          )
     </select>
 
     <select id="sumAmountByRegionAndYear" resultType="java.lang.Double">
         SELECT IFNULL(SUM(amount), 0)
         FROM fund_usage
         WHERE region_id = #{regionId}
-            AND YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d %H:%i:%s')) = #{year}
           AND audit_status = 1
+          AND (
+            YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d %H:%i:%s')) = #{year}
+            OR YEAR(STR_TO_DATE(usage_date, '%Y-%m-%d')) = #{year}
+          )
     </select>
 
     <update id="updateById">

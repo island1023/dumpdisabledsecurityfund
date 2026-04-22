@@ -1,17 +1,8 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
+import { LeaderService, LeaderFundUsageItem } from '../../services/LeaderService';
+import { promptAction } from '@kit.ArkUI';
 
-// 保障金使用项目
-interface FundUsageItem {
-  id: string;
-  projectName: string;
-  projectType: string; // '就业服务' | '职业培训' | '康复服务' | '无障碍改造' | '其他'
-  district: string;
-  amount: number;
-  usageDate: string;
-  status: string; // '已拨付' | '拨付中' | '已验收'
-  description: string;
-  beneficiaryCount?: number; // 受益人数
-}
+type FundUsageItem = LeaderFundUsageItem;
 
 // 弹窗类型枚举
 enum FundSheetType {
@@ -21,82 +12,36 @@ enum FundSheetType {
 
 @Component
 export struct LeaderFundUsagePage {
+  @Prop @Watch('onScopeChanged') selectedRegionId: number = 0;
   @State searchKeyword: string = '';
   @State selectedDistrict: string = 'all';
   @State isSheetShow: boolean = false;
   @State activeSheet: FundSheetType = FundSheetType.NONE;
   @State selectedFund: FundUsageItem | null = null;
   @State filterType: string = 'all'; // 筛选类型
+  @State fundList: FundUsageItem[] = [];
+  @State listLoading: boolean = false;
 
-  // 模拟数据
-  @State fundList: FundUsageItem[] = [
-    {
-      id: '1',
-      projectName: '残疾人就业技能培训项目',
-      projectType: '职业培训',
-      district: '锦江区',
-      amount: 500000,
-      usageDate: '2025-03-15',
-      status: '已拨付',
-      description: '为残疾人提供职业技能培训，提升就业能力',
-      beneficiaryCount: 150
-    },
-    {
-      id: '2',
-      projectName: '社区康复服务中心建设',
-      projectType: '康复服务',
-      district: '青羊区',
-      amount: 800000,
-      usageDate: '2025-02-20',
-      status: '已拨付',
-      description: '建设社区康复服务设施，提供康复训练服务',
-      beneficiaryCount: 300
-    },
-    {
-      id: '3',
-      projectName: '残疾人家庭无障碍改造',
-      projectType: '无障碍改造',
-      district: '金牛区',
-      amount: 350000,
-      usageDate: '2025-04-10',
-      status: '拨付中',
-      description: '为残疾人家庭进行无障碍设施改造',
-      beneficiaryCount: 80
-    },
-    {
-      id: '4',
-      projectName: '残疾人就业援助服务',
-      projectType: '就业服务',
-      district: '锦江区',
-      amount: 200000,
-      usageDate: '2025-01-25',
-      status: '已验收',
-      description: '提供就业咨询、职业介绍等就业援助服务',
-      beneficiaryCount: 200
-    },
-    {
-      id: '5',
-      projectName: '残疾人文化体育活动',
-      projectType: '其他',
-      district: '武侯区',
-      amount: 150000,
-      usageDate: '2025-03-30',
-      status: '已拨付',
-      description: '组织残疾人参与文化体育活动，丰富精神文化生活',
-      beneficiaryCount: 500
-    },
-    {
-      id: '6',
-      projectName: '辅具适配与发放服务',
-      projectType: '康复服务',
-      district: '青羊区',
-      amount: 280000,
-      usageDate: '2025-04-05',
-      status: '已拨付',
-      description: '为残疾人适配和发放辅助器具',
-      beneficiaryCount: 120
+  aboutToAppear(): void {
+    this.loadFundList();
+  }
+
+  private onScopeChanged(): void {
+    void this.loadFundList();
+  }
+
+  async loadFundList(): Promise<void> {
+    this.listLoading = true;
+    try {
+      const pt = this.filterType === 'all' ? '' : this.filterType;
+      this.fundList = await LeaderService.getFundUsage(this.searchKeyword, pt);
+    } catch (e) {
+      promptAction.showToast({ message: (e as Error).message || '加载失败' });
+      this.fundList = [];
+    } finally {
+      this.listLoading = false;
     }
-  ];
+  }
 
   // 打开弹窗
   private openSheet(type: FundSheetType) {
@@ -104,23 +49,31 @@ export struct LeaderFundUsagePage {
     this.isSheetShow = true;
   }
 
-  // 获取筛选后的列表
+  // 列表已由接口按关键词与类型筛选
   private getFilteredList(): FundUsageItem[] {
-    let list = this.fundList;
-
-    if (this.selectedDistrict !== 'all') {
-      list = list.filter(item => item.district === this.selectedDistrict);
+    if (this.selectedRegionId <= 0) {
+      return this.fundList;
     }
-
-    if (this.filterType !== 'all') {
-      list = list.filter(item => item.projectType === this.filterType);
+    const regionNameMap: Record<number, string> = {
+      1: '锦江区',
+      2: '青羊区',
+      3: '金牛区',
+      4: '武侯区',
+      5: '成华区',
+      6: '龙泉驿区',
+      7: '青白江区',
+      8: '新都区',
+      9: '温江区',
+      10: '双流区',
+      11: '郫都区',
+      12: '新津区',
+      13: '金堂县'
+    };
+    const targetDistrict = regionNameMap[this.selectedRegionId] || '';
+    if (!targetDistrict) {
+      return this.fundList;
     }
-
-    if (this.searchKeyword) {
-      list = list.filter(item => item.projectName.includes(this.searchKeyword));
-    }
-
-    return list;
+    return this.fundList.filter(item => item.district === targetDistrict);
   }
 
   // 获取状态颜色
@@ -169,6 +122,7 @@ export struct LeaderFundUsagePage {
             .margin({ right: 8 })
             .onClick(() => {
               this.filterType = 'all';
+              this.loadFundList();
             })
 
           Text('就业服务')
@@ -181,6 +135,7 @@ export struct LeaderFundUsagePage {
             .margin({ right: 8 })
             .onClick(() => {
               this.filterType = '就业服务';
+              this.loadFundList();
             })
 
           Text('康复服务')
@@ -192,6 +147,7 @@ export struct LeaderFundUsagePage {
             .borderRadius(16)
             .onClick(() => {
               this.filterType = '康复服务';
+              this.loadFundList();
             })
         }
       }
@@ -220,13 +176,32 @@ export struct LeaderFundUsagePage {
           .backgroundColor(ColorConstants.PRIMARY)
           .borderRadius(8)
           .margin({ left: 12 })
+          .onClick(() => {
+            this.loadFundList();
+          })
       }
       .width('100%')
       .margin({ bottom: 16 })
 
+      if (this.listLoading) {
+        Text('加载中…')
+          .fontSize(14)
+          .fontColor(ColorConstants.TEXT_SECONDARY)
+          .width('100%')
+          .margin({ bottom: 8 })
+      }
+
       // 列表 - 可滚动
       Scroll() {
         Column() {
+          if (!this.listLoading && this.getFilteredList().length === 0) {
+            Text('暂无资金使用记录')
+              .fontSize(14)
+              .fontColor(ColorConstants.TEXT_SECONDARY)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .padding({ top: 24 })
+          }
           ForEach(this.getFilteredList(), (item: FundUsageItem) => {
             Column() {
               // 头部：项目名称和状态

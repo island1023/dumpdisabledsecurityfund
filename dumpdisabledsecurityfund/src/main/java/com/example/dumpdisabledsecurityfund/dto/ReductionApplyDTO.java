@@ -20,4 +20,6 @@ public class ReductionApplyDTO {
 
     @NotBlank(message = "申请理由不能为空")
     private String reason;
+
+    private String attachment;
 }

@@ -10,22 +10,22 @@ public interface ApprovalService {
     /**
      * 获取待审批列表
      */
-    Result<?> getPendingList(Integer page, Integer pageSize, String type);
+    Result<?> getPendingList(Integer page, Integer pageSize, String type, Long regionId);
 
     /**
      * 审批通过
      */
-    Result<?> approve(Long approvalId);
+    Result<?> approve(String approvalId);
 
     /**
      * 审批驳回
      */
-    Result<?> reject(Long approvalId, String reason);
+    Result<?> reject(String approvalId, String reason);
 
     /**
      * 获取审批详情
      */
-    Result<?> getDetail(Long approvalId);
+    Result<?> getDetail(String approvalId);
 
     /**
      * 获取审批统计

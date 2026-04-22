@@ -32,8 +32,10 @@ public class ApprovalController {
             @Parameter(description = "每页数量，默认20", example = "20")
             @RequestParam(required = false, defaultValue = "20") Integer pageSize,
             @Parameter(description = "类型筛选：disabled-残疾职工, reduction-减免缓, all-全部")
-            @RequestParam(required = false, defaultValue = "all") String type) {
-        return approvalService.getPendingList(page, pageSize, type);
+            @RequestParam(required = false, defaultValue = "all") String type,
+            @Parameter(description = "区县ID（市级管理员可选）", example = "1")
+            @RequestParam(required = false) Long regionId) {
+        return approvalService.getPendingList(page, pageSize, type, regionId);
     }
 
     @Operation(summary = "审批通过", description = "通过指定的审批申请")
@@ -41,7 +43,7 @@ public class ApprovalController {
     @RequirePermission(roles = {"admin_city", "admin_district"})
     public Result<?> approve(
             @Parameter(description = "审批ID", required = true, example = "1")
-            @PathVariable Long approvalId) {
+            @PathVariable String approvalId) {
         return approvalService.approve(approvalId);
     }
 
@@ -50,7 +52,7 @@ public class ApprovalController {
     @RequirePermission(roles = {"admin_city", "admin_district"})
     public Result<?> reject(
             @Parameter(description = "审批ID", required = true, example = "1")
-            @PathVariable Long approvalId,
+            @PathVariable String approvalId,
             @Parameter(description = "驳回原因", required = true)
             @RequestBody Map<String, String> request) {
         String reason = request.get("reason");
@@ -62,7 +64,7 @@ public class ApprovalController {
     @RequirePermission(roles = {"admin_city", "admin_district", "company_user"})
     public Result<?> getDetail(
             @Parameter(description = "审批ID", required = true, example = "1")
-            @PathVariable Long approvalId) {
+            @PathVariable String approvalId) {
         return approvalService.getDetail(approvalId);
     }
 

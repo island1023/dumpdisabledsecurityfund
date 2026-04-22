@@ -42,6 +42,10 @@
             <if test="disabledEmployeeCount != null">disabled_employee_count = #{disabledEmployeeCount},</if>
             <if test="requiredRatio != null">required_ratio = #{requiredRatio},</if>
             <if test="calculatedAmount != null">calculated_amount = #{calculatedAmount},</if>
+            <if test="reductionAmount != null">reduction_amount = #{reductionAmount},</if>
+            <if test="payableAmount != null">payable_amount = #{payableAmount},</if>
+            <if test="paidAmount != null">paid_amount = #{paidAmount},</if>
+            <if test="paymentStatus != null">payment_status = #{paymentStatus},</if>
             <if test="status != null">status = #{status},</if>
             <if test="confirmTime != null">confirm_time = #{confirmTime},</if>
         </set>

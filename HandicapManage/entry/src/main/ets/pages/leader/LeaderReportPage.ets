@@ -1,4 +1,7 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
+import { LeaderService } from '../../services/LeaderService';
+import { promptAction } from '@kit.ArkUI';
+import { appViewModel } from '../../viewmodel/AppViewModel';
 
 // 报表类型
 enum ReportType {
@@ -71,34 +74,189 @@ export struct LeaderReportPage {
   @State selectedMonth: number = new Date().getMonth() + 1;
   @State showConfig: boolean = false;
 
-  // 模拟数据
-  @State unitStats: UnitStatItem[] = [
-    { district: '锦江区', unitCount: 150, totalEmployees: 15000, disabledEmployees: 300 },
-    { district: '青羊区', unitCount: 120, totalEmployees: 12000, disabledEmployees: 250 },
-    { district: '金牛区', unitCount: 100, totalEmployees: 10000, disabledEmployees: 200 },
-    { district: '武侯区', unitCount: 80, totalEmployees: 8000, disabledEmployees: 150 },
-    { district: '成华区', unitCount: 90, totalEmployees: 9000, disabledEmployees: 180 }
-  ];
+  @State unitStats: UnitStatItem[] = [];
+  @State unpaidUnits: UnpaidUnitItem[] = [];
+  @State paymentStats: PaymentStatItem[] = [];
+  @State reliefStats: ReliefStatItem[] = [];
+  @State reportLoading: boolean = false;
+  @State maxUnitCountBar: number = 1;
+  @State maxPaymentPayableBar: number = 1;
+  @State localDistrictName: string = '';
 
-  @State unpaidUnits: UnpaidUnitItem[] = [
-    { companyName: '锦江商贸集团', district: '青羊区', year: '2025年', payableAmount: 150000, unpaidMonths: 3 },
-    { companyName: '青羊金融服务', district: '青羊区', year: '2025年', payableAmount: 90000, unpaidMonths: 2 },
-    { companyName: '金牛制造有限公司', district: '金牛区', year: '2025年', payableAmount: 210000, unpaidMonths: 1 }
-  ];
+  aboutToAppear(): void {
+    this.localDistrictName = this.resolveLocalDistrictName();
+    this.loadReportData();
+  }
 
-  @State paymentStats: PaymentStatItem[] = [
-    { district: '锦江区', totalPayable: 1800000, totalPaid: 1750000, paymentRate: 97.2 },
-    { district: '青羊区', totalPayable: 1500000, totalPaid: 1450000, paymentRate: 96.7 },
-    { district: '金牛区', totalPayable: 1200000, totalPaid: 1150000, paymentRate: 95.8 },
-    { district: '武侯区', totalPayable: 950000, totalPaid: 900000, paymentRate: 94.7 },
-    { district: '成华区', totalPayable: 1100000, totalPaid: 1050000, paymentRate: 95.5 }
-  ];
+  private resolveLocalDistrictName(): string {
+    const user = appViewModel.currentUser;
+    if (!user) {
+      return '';
+    }
+    const name = user.districtName ? user.districtName.trim() : '';
+    if (name.length > 0 && name !== '未知区域') {
+      return name;
+    }
+    const byCode: Record<string, string> = {
+      '1': '锦江区',
+      '2': '青羊区',
+      '3': '金牛区',
+      '4': '武侯区',
+      '5': '成华区',
+      '6': '龙泉驿区',
+      '7': '青白江区',
+      '8': '新都区',
+      '9': '温江区',
+      '10': '双流区',
+      '11': '郫都区',
+      '12': '新津区',
+      '13': '金堂县'
+    };
+    return byCode[user.districtCode] || '';
+  }
 
-  @State reliefStats: ReliefStatItem[] = [
-    { type: '减免', unitCount: 45, totalAmount: 850000, approvedCount: 40 },
-    { type: '缓缴', unitCount: 30, totalAmount: 620000, approvedCount: 28 },
-    { type: '减免+缓缴', unitCount: 15, totalAmount: 350000, approvedCount: 14 }
-  ];
+  private isLocalDistrict(district: string): boolean {
+    if (!this.localDistrictName || this.localDistrictName.trim().length === 0) {
+      return false;
+    }
+    const lhs = district ? district.trim() : '';
+    const rhs = this.localDistrictName.trim();
+    return lhs === rhs;
+  }
+
+  private localUnitStat(): UnitStatItem | null {
+    for (let i = 0; i < this.unitStats.length; i++) {
+      if (this.isLocalDistrict(this.unitStats[i].district)) {
+        return this.unitStats[i];
+      }
+    }
+    return null;
+  }
+
+  private localPaymentStat(): PaymentStatItem | null {
+    for (let i = 0; i < this.paymentStats.length; i++) {
+      if (this.isLocalDistrict(this.paymentStats[i].district)) {
+        return this.paymentStats[i];
+      }
+    }
+    return null;
+  }
+
+  private reportTypeCode(): string {
+    switch (this.selectedReportType) {
+      case ReportType.UNIT_INFO:
+        return 'UNIT_INFO';
+      case ReportType.UNPAID_UNIT:
+        return 'UNPAID_UNIT';
+      case ReportType.PAYMENT_STAT:
+        return 'PAYMENT_STAT';
+      case ReportType.RELIEF_STAT:
+        return 'RELIEF_STAT';
+      default:
+        return 'UNIT_INFO';
+    }
+  }
+
+  private readRowString(row: Record<string, Object>, key: string): string {
+    const v = row[key];
+    if (typeof v === 'string') {
+      return v;
+    }
+    if (typeof v === 'number') {
+      return `${v}`;
+    }
+    return '';
+  }
+
+  private readRowNumber(row: Record<string, Object>, key: string): number {
+    const v = row[key];
+    if (typeof v === 'number') {
+      return v;
+    }
+    if (typeof v === 'string') {
+      const n = Number(v);
+      return Number.isNaN(n) ? 0 : n;
+    }
+    return 0;
+  }
+
+  async loadReportData(): Promise<void> {
+    this.reportLoading = true;
+    try {
+      const bundle = await LeaderService.getReport(this.reportTypeCode(), this.selectedYear, this.selectedMonth);
+      const rows = bundle.rows;
+      if (this.selectedReportType === ReportType.UNIT_INFO) {
+        const next: UnitStatItem[] = [];
+        let maxU = 1;
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          const uc = this.readRowNumber(r, 'unitCount');
+          if (uc > maxU) {
+            maxU = uc;
+          }
+          next.push({
+            district: this.readRowString(r, 'district'),
+            unitCount: uc,
+            totalEmployees: this.readRowNumber(r, 'totalEmployees'),
+            disabledEmployees: this.readRowNumber(r, 'disabledEmployees')
+          });
+        }
+        this.unitStats = next;
+        this.maxUnitCountBar = maxU;
+      } else if (this.selectedReportType === ReportType.UNPAID_UNIT) {
+        const next: UnpaidUnitItem[] = [];
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          next.push({
+            companyName: this.readRowString(r, 'companyName'),
+            district: this.readRowString(r, 'district'),
+            year: this.readRowString(r, 'year'),
+            payableAmount: this.readRowNumber(r, 'payableAmount'),
+            unpaidMonths: this.readRowNumber(r, 'unpaidMonths')
+          });
+        }
+        this.unpaidUnits = next;
+      } else if (this.selectedReportType === ReportType.PAYMENT_STAT) {
+        const next: PaymentStatItem[] = [];
+        let maxP = 1;
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          const tp = this.readRowNumber(r, 'totalPayable');
+          if (tp > maxP) {
+            maxP = tp;
+          }
+          next.push({
+            district: this.readRowString(r, 'district'),
+            totalPayable: tp,
+            totalPaid: this.readRowNumber(r, 'totalPaid'),
+            paymentRate: this.readRowNumber(r, 'paymentRate')
+          });
+        }
+        this.paymentStats = next;
+        this.maxPaymentPayableBar = maxP > 0 ? maxP : 1;
+      } else if (this.selectedReportType === ReportType.RELIEF_STAT) {
+        const next: ReliefStatItem[] = [];
+        for (let i = 0; i < rows.length; i++) {
+          const r = rows[i];
+          next.push({
+            type: this.readRowString(r, 'type'),
+            unitCount: this.readRowNumber(r, 'unitCount'),
+            totalAmount: this.readRowNumber(r, 'totalAmount'),
+            approvedCount: this.readRowNumber(r, 'approvedCount')
+          });
+        }
+        this.reliefStats = next;
+      }
+    } catch (e) {
+      promptAction.showToast({ message: (e as Error).message || '加载报表失败' });
+      this.unitStats = [];
+      this.unpaidUnits = [];
+      this.paymentStats = [];
+      this.reliefStats = [];
+    } finally {
+      this.reportLoading = false;
+    }
+  }
 
   // 打开配置弹窗
   private openConfig() {
@@ -107,10 +265,9 @@ export struct LeaderReportPage {
   }
 
   // 生成报表
-  private handleGenerateReport() {
+  private handleGenerateReport(): void {
     this.isSheetShow = false;
-    // 这里可以根据selectedYear和selectedMonth重新加载数据
-    console.log(`生成报表：${this.selectedReportType}, ${this.selectedYear}年${this.selectedMonth}月`);
+    void this.loadReportData();
   }
 
   build() {
@@ -160,6 +317,22 @@ export struct LeaderReportPage {
       .backgroundColor(ColorConstants.BG_CARD)
       .borderRadius(12)
       .margin({ bottom: 16 })
+
+      if (this.reportLoading) {
+        Text('加载报表数据…')
+          .fontSize(14)
+          .fontColor(ColorConstants.TEXT_SECONDARY)
+          .width('100%')
+          .margin({ bottom: 8 })
+      }
+
+      if (!this.reportLoading && this.localDistrictName.trim().length > 0 && this.selectedReportType === ReportType.UNIT_INFO && this.localUnitStat() !== null) {
+        this.buildLocalUnitSummaryCard(this.localUnitStat()!)
+      }
+
+      if (!this.reportLoading && this.localDistrictName.trim().length > 0 && this.selectedReportType === ReportType.PAYMENT_STAT && this.localPaymentStat() !== null) {
+        this.buildLocalPaymentSummaryCard(this.localPaymentStat()!)
+      }
 
       // 报表内容 - 可滚动
       Scroll() {
@@ -286,19 +459,22 @@ export struct LeaderReportPage {
                 .width(80)
 
               Row() {
-                Rect()
-                  .width(this.getBarWidth(item.unitCount, 150))
+                Row()
+                  .width(`${(item.unitCount / (this.maxUnitCountBar > 0 ? this.maxUnitCountBar : 1)) * 100}%`)
                   .height(20)
-                  .fill(ColorConstants.PRIMARY)
+                  .backgroundColor(this.isLocalDistrict(item.district) ? ColorConstants.WARNING : ColorConstants.PRIMARY)
                   .borderRadius(4)
               }
               .layoutWeight(1)
+              .height(20)
+              .backgroundColor(ColorConstants.BG_PAGE)
+              .borderRadius(4)
 
-              Text(`${item.unitCount}家`)
+              Text(this.isLocalDistrict(item.district) ? `${item.unitCount}家（本区）` : `${item.unitCount}家`)
                 .fontSize(13)
-                .fontColor(ColorConstants.PRIMARY)
+                .fontColor(this.isLocalDistrict(item.district) ? ColorConstants.WARNING : ColorConstants.PRIMARY)
                 .fontWeight(FontWeight.Medium)
-                .width(60)
+                .width(88)
                 .textAlign(TextAlign.End)
             }
             .width('100%')
@@ -359,7 +535,8 @@ export struct LeaderReportPage {
           Row() {
             Text(item.district)
               .fontSize(13)
-              .fontColor(ColorConstants.TEXT_TITLE)
+              .fontColor(this.isLocalDistrict(item.district) ? ColorConstants.WARNING : ColorConstants.TEXT_TITLE)
+              .fontWeight(this.isLocalDistrict(item.district) ? FontWeight.Medium : FontWeight.Normal)
               .layoutWeight(1)
 
             Text(`${item.unitCount}`)
@@ -379,7 +556,7 @@ export struct LeaderReportPage {
           }
           .width('100%')
           .padding(12)
-          .backgroundColor(ColorConstants.BG_CARD)
+          .backgroundColor(this.isLocalDistrict(item.district) ? 'rgba(245, 158, 11, 0.10)' : ColorConstants.BG_CARD)
           .borderRadius(8)
           .margin({ bottom: 4 })
         })
@@ -393,23 +570,6 @@ export struct LeaderReportPage {
   @Builder
   buildUnpaidUnitReport() {
     Column() {
-      Text('未缴款单位统计')
-        .fontSize(18)
-        .fontColor(ColorConstants.TEXT_TITLE)
-        .fontWeight(FontWeight.Bold)
-        .width('100%')
-        .margin({ bottom: 16 })
-
-      // 饼图数据展示(移除左侧重复列表)
-      Column() {
-        this.buildPieChart(this.getUnpaidPieData(), 0, 0)
-      }
-      .width('100%')
-      .padding(16)
-      .backgroundColor(ColorConstants.BG_CARD)
-      .borderRadius(12)
-      .margin({ bottom: 20 })
-
       // 明细表
       Text('未缴款单位明细')
         .fontSize(16)
@@ -501,16 +661,17 @@ export struct LeaderReportPage {
           Row() {
             Text(item.district)
               .fontSize(13)
-              .fontColor(ColorConstants.TEXT_TITLE)
+              .fontColor(this.isLocalDistrict(item.district) ? ColorConstants.WARNING : ColorConstants.TEXT_TITLE)
+              .fontWeight(this.isLocalDistrict(item.district) ? FontWeight.Medium : FontWeight.Normal)
               .width(70)
 
             Column({ space: 4 }) {
               // 应缴进度条
               Row() {
                 Row()
-                  .width(`${(item.totalPayable / 1800000) * 100}%`)
+                  .width(`${(item.totalPayable / this.maxPaymentPayableBar) * 100}%`)
                   .height(8)
-                  .backgroundColor(ColorConstants.PRIMARY)
+                  .backgroundColor(this.isLocalDistrict(item.district) ? ColorConstants.WARNING : ColorConstants.PRIMARY)
                   .borderRadius(4)
               }
               .width('100%')
@@ -521,7 +682,7 @@ export struct LeaderReportPage {
               // 实缴进度条
               Row() {
                 Row()
-                  .width(`${(item.totalPaid / 1800000) * 100}%`)
+                  .width(`${(item.totalPaid / this.maxPaymentPayableBar) * 100}%`)
                   .height(8)
                   .backgroundColor(ColorConstants.SUCCESS)
                   .borderRadius(4)
@@ -542,7 +703,7 @@ export struct LeaderReportPage {
           }
           .width('100%')
           .padding(12)
-          .backgroundColor(ColorConstants.BG_PAGE)
+          .backgroundColor(this.isLocalDistrict(item.district) ? 'rgba(245, 158, 11, 0.10)' : ColorConstants.BG_PAGE)
           .borderRadius(8)
         })
       }
@@ -629,7 +790,8 @@ export struct LeaderReportPage {
           Row() {
             Text(item.district)
               .fontSize(13)
-              .fontColor(ColorConstants.TEXT_TITLE)
+              .fontColor(this.isLocalDistrict(item.district) ? ColorConstants.WARNING : ColorConstants.TEXT_TITLE)
+              .fontWeight(this.isLocalDistrict(item.district) ? FontWeight.Medium : FontWeight.Normal)
               .layoutWeight(1)
 
             Text(`${(item.totalPayable / 10000).toFixed(1)}`)
@@ -649,7 +811,7 @@ export struct LeaderReportPage {
           }
           .width('100%')
           .padding(12)
-          .backgroundColor(ColorConstants.BG_CARD)
+          .backgroundColor(this.isLocalDistrict(item.district) ? 'rgba(245, 158, 11, 0.10)' : ColorConstants.BG_CARD)
           .borderRadius(8)
           .margin({ bottom: 4 })
         })
@@ -659,27 +821,44 @@ export struct LeaderReportPage {
     .width('100%')
   }
 
+  @Builder
+  private buildLocalUnitSummaryCard(item: UnitStatItem) {
+    Row() {
+      Text(`本区（${item.district}）单位概览：单位 ${item.unitCount} 家，在职 ${item.totalEmployees} 人，残疾职工 ${item.disabledEmployees} 人`)
+        .fontSize(13)
+        .fontColor(ColorConstants.WARNING)
+        .fontWeight(FontWeight.Medium)
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .padding(12)
+    .backgroundColor('rgba(245, 158, 11, 0.10)')
+    .border({ width: 1, color: 'rgba(245, 158, 11, 0.35)' })
+    .borderRadius(8)
+    .margin({ bottom: 12 })
+  }
+
+  @Builder
+  private buildLocalPaymentSummaryCard(item: PaymentStatItem) {
+    Row() {
+      Text(`本区（${item.district}）缴纳概览：应缴 ${(item.totalPayable / 10000).toFixed(1)} 万，实缴 ${(item.totalPaid / 10000).toFixed(1)} 万，缴纳率 ${item.paymentRate.toFixed(1)}%`)
+        .fontSize(13)
+        .fontColor(ColorConstants.WARNING)
+        .fontWeight(FontWeight.Medium)
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .padding(12)
+    .backgroundColor('rgba(245, 158, 11, 0.10)')
+    .border({ width: 1, color: 'rgba(245, 158, 11, 0.35)' })
+    .borderRadius(8)
+    .margin({ bottom: 12 })
+  }
+
   // 减免缓缴保障金统计报表
   @Builder
   buildReliefStatReport() {
     Column() {
-      Text('减免缓缴保障金统计')
-        .fontSize(18)
-        .fontColor(ColorConstants.TEXT_TITLE)
-        .fontWeight(FontWeight.Bold)
-        .width('100%')
-        .margin({ bottom: 16 })
-
-      // 饼图数据展示(移除左侧重复列表)
-      Column() {
-        this.buildPieChart(this.getReliefPieData(), 0, 0)
-      }
-      .width('100%')
-      .padding(16)
-      .backgroundColor(ColorConstants.BG_CARD)
-      .borderRadius(12)
-      .margin({ bottom: 20 })
-
       // 详细数据表格
       Text('详细数据')
         .fontSize(16)
@@ -756,7 +935,8 @@ export struct LeaderReportPage {
 
   // 辅助方法
   private getBarWidth(value: number, maxValue: number): number {
-    return Math.max(20, (value / maxValue) * 200);
+    const max = maxValue > 0 ? maxValue : 1;
+    return Math.max(20, (value / max) * 200);
   }
 
   private getColorByIndex(index: number): string {

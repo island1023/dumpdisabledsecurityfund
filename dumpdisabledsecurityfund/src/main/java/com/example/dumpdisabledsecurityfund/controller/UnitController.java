@@ -87,6 +87,20 @@ public class UnitController {
         return employeeService.addDisabledEmployees(request);
     }
 
+    @Operation(summary = "提交残疾职工审核申请", description = "单位提交新增残疾职工申请，等待市/区管理员审核")
+    @PostMapping("/disabled-audits")
+    @RequirePermission(roles = {"company_user"})
+    public Result<?> submitDisabledAuditApplications(@RequestBody Object request) {
+        return employeeService.submitDisabledAuditApplications(request);
+    }
+
+    @Operation(summary = "获取残疾职工审核申请记录", description = "获取单位新增残疾职工的审核申请列表")
+    @GetMapping("/disabled-audits")
+    @RequirePermission(roles = {"company_user"})
+    public Result<?> getDisabledAuditApplications() {
+        return employeeService.getDisabledAuditApplications();
+    }
+
     @Operation(summary = "提交减免缓申请", description = "企业提交减免或缓缴申请")
     @PostMapping("/applications")
     @RequirePermission(roles = {"company_user"})
@@ -126,6 +140,13 @@ public class UnitController {
     @RequirePermission(roles = {"company_user"})
     public Result<?> getPaymentStatistics() {
         return paymentService.getPaymentStatistics();
+    }
+
+    @Operation(summary = "获取税务平台应缴模拟数据", description = "模拟从外部税务平台拉取本年度应缴金额")
+    @GetMapping("/payment/tax-platform")
+    @RequirePermission(roles = {"company_user"})
+    public Result<?> getTaxPlatformSummary() {
+        return paymentService.getMockTaxPlatformSummary();
     }
 
     @Operation(summary = "获取缴费记录列表", description = "获取企业的缴费历史记录")

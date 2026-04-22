@@ -9,4 +9,6 @@ public interface PaymentService {
     Result<?> getPaymentStatistics();
 
     Result<?> getPayments(Integer page, Integer pageSize);
+
+    Result<?> getMockTaxPlatformSummary();
 }

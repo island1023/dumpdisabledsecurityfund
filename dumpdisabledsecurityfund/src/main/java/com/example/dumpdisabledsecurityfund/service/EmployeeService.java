@@ -19,4 +19,8 @@ public interface EmployeeService {
     Result<?> addEmployee(Object request);
 
     Result<?> addDisabledEmployees(Object request);
+
+    Result<?> submitDisabledAuditApplications(Object request);
+
+    Result<?> getDisabledAuditApplications();
 }

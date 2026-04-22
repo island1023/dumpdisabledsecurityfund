@@ -76,6 +76,15 @@
         SELECT * FROM notice WHERE notice_number = #{noticeNumber}
     </select>
 
+    <select id="selectLatestByCompanyTypeAndYear" resultMap="BaseResultMap">
+        SELECT * FROM notice
+        WHERE company_id = #{companyId}
+          AND notice_type = #{noticeType}
+          AND notice_number LIKE CONCAT(#{noticeNumberYearPrefix}, '%')
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
     <update id="updateById">
         UPDATE notice
         <set>

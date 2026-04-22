@@ -1,5 +1,5 @@
 import { ColorConstants } from '../../common/constants/ColorConstants';
-import { SystemUserService, ImportResult } from '../../services/SystemUserService';
+import { SystemUserService, ImportResult, CompanyOption } from '../../services/SystemUserService';
 import { User } from '../../models/UserModel';
 import { promptAction } from '@kit.ArkUI';
 import { picker } from '@kit.CoreFileKit';
@@ -16,12 +16,16 @@ export struct SystemAdminUserManage {
   @State formRealName: string = '';
   @State formRole: string = '';
   @State formDistrict: string = '';
+  @State formCompanyId: string = '';
+  @State formCompanyName: string = '';
   @State showRoleDropdown: boolean = false;
   @State showDistrictDropdown: boolean = false;
+  @State showCompanyDropdown: boolean = false;
   @State isLoading: boolean = false;
   @State errorMessage: string = '';
   @State editingUserId: string = '';
   @State isImporting: boolean = false;
+  @State companyOptions: CompanyOption[] = [];
 
   private roleOptions: string[] = [
     'SYSTEM_ADMIN', 'CITY_ADMIN', 'DISTRICT_ADMIN',
@@ -35,6 +39,15 @@ export struct SystemAdminUserManage {
 
   aboutToAppear() {
     this.loadUserList();
+    this.loadCompanyOptions();
+  }
+
+  async loadCompanyOptions() {
+    try {
+      this.companyOptions = await SystemUserService.getCompanyOptions();
+    } catch (error) {
+      console.error('加载单位列表失败:', error);
+    }
   }
 
   async loadUserList() {
@@ -160,6 +173,7 @@ export struct SystemAdminUserManage {
         this.showPasswordDialog = false;
         this.showRoleDropdown = false;
         this.showDistrictDropdown = false;
+        this.showCompanyDropdown = false;
       }
     });
   }
@@ -169,6 +183,7 @@ export struct SystemAdminUserManage {
     this.showPasswordDialog = false;
     this.showRoleDropdown = false;
     this.showDistrictDropdown = false;
+    this.showCompanyDropdown = false;
   }
 
   @Builder
@@ -337,6 +352,7 @@ export struct SystemAdminUserManage {
             .onClick((): void => {
               this.showRoleDropdown = !this.showRoleDropdown;
               this.showDistrictDropdown = false;
+              this.showCompanyDropdown = false;
             });
 
             if (this.showRoleDropdown) {
@@ -371,6 +387,12 @@ export struct SystemAdminUserManage {
                       } else {
                         this.formDistrict = '';
                         this.showDistrictDropdown = false;
+                      }
+                      if (roleCode === 'UNIT') {
+                        this.formCompanyId = '';
+                        this.formCompanyName = '';
+                      } else {
+                        this.showCompanyDropdown = false;
                       }
                     });
                   }
@@ -408,6 +430,7 @@ export struct SystemAdminUserManage {
               .margin({ bottom: 8 })
               .onClick((): void => {
                 this.showDistrictDropdown = !this.showDistrictDropdown;
+                this.showCompanyDropdown = false;
               });
 
               if (this.showDistrictDropdown) {
@@ -433,6 +456,74 @@ export struct SystemAdminUserManage {
                       .onClick((): void => {
                         this.formDistrict = district;
                         this.showDistrictDropdown = false;
+                      });
+                    }
+                  });
+                }
+                .width('100%')
+                .height(180)
+                .borderRadius(8)
+                .border({ width: 1, color: ColorConstants.BORDER });
+              }
+            }
+            .width('100%')
+            .margin({ bottom: 16 });
+          }
+
+          if (this.formRole === 'UNIT') {
+            Column() {
+              Text('所属单位')
+                .fontSize(14)
+                .fontColor(ColorConstants.TEXT_SECONDARY)
+                .margin({ bottom: 8 });
+
+              Row() {
+                Text(this.formCompanyName || '请选择所属单位')
+                  .fontSize(14)
+                  .fontColor(this.formCompanyName ? ColorConstants.TEXT_TITLE : ColorConstants.TEXT_SECONDARY)
+                  .layoutWeight(1);
+
+                SymbolGlyph($r('sys.symbol.chevron_down'))
+                  .fontSize(16)
+                  .fontColor([ColorConstants.TEXT_SECONDARY])
+                  .rotate({ angle: this.showCompanyDropdown ? 180 : 0 });
+              }
+              .width('100%')
+              .height(44)
+              .padding({ left: 12, right: 12 })
+              .backgroundColor(ColorConstants.BG_PAGE)
+              .borderRadius(8)
+              .border({ width: 1, color: ColorConstants.BORDER })
+              .margin({ bottom: 8 })
+              .onClick((): void => {
+                this.showCompanyDropdown = !this.showCompanyDropdown;
+                this.showDistrictDropdown = false;
+              });
+
+              if (this.showCompanyDropdown) {
+                List() {
+                  ForEach(this.companyOptions, (company: CompanyOption) => {
+                    ListItem() {
+                      Row() {
+                        Text(company.name)
+                          .fontSize(14)
+                          .fontColor(this.formCompanyId === company.id ? ColorConstants.PRIMARY : ColorConstants.TEXT_TITLE)
+                          .fontWeight(this.formCompanyId === company.id ? FontWeight.Bold : FontWeight.Normal)
+                          .layoutWeight(1);
+
+                        if (this.formCompanyId === company.id) {
+                          SymbolGlyph($r('sys.symbol.checkmark'))
+                            .fontSize(16)
+                            .fontColor([ColorConstants.PRIMARY]);
+                        }
+                      }
+                      .width('100%')
+                      .height(44)
+                      .padding({ left: 12, right: 12 })
+                      .onClick((): void => {
+                        this.formCompanyId = company.id;
+                        this.formCompanyName = company.name;
+                        this.showCompanyDropdown = false;
                       });
                     }
                   });
@@ -648,6 +739,17 @@ export struct SystemAdminUserManage {
       });
       return;
     }
+    if (this.formRole === 'UNIT' && !this.formCompanyId.trim()) {
+      AlertDialog.show({
+        title: '提示',
+        message: '请选择所属单位',
+        primaryButton: {
+          value: '确定',
+          action: () => {}
+        }
+      });
+      return;
+    }
 
     try {
       const isEditMode = !!this.editingUserId;
@@ -661,7 +763,7 @@ export struct SystemAdminUserManage {
       if (this.editingUserId) {
         await SystemUserService.updateUser(this.editingUserId, userData);
       } else {
-        await SystemUserService.addUser(userData);
+        await SystemUserService.addUser(userData, this.formRole === 'UNIT' ? this.formCompanyId : '');
       }
 
       this.closeCurrentSheet();
@@ -695,8 +797,11 @@ export struct SystemAdminUserManage {
     this.formRealName = '';
     this.formRole = '';
     this.formDistrict = '';
+    this.formCompanyId = '';
+    this.formCompanyName = '';
     this.showRoleDropdown = false;
     this.showDistrictDropdown = false;
+    this.showCompanyDropdown = false;
   }
 
   private handleEditUser(user: User): void {
@@ -705,8 +810,11 @@ export struct SystemAdminUserManage {
     this.formRealName = user.realName;
     this.formRole = user.role;
     this.formDistrict = user.districtName || '';
+    this.formCompanyId = '';
+    this.formCompanyName = '';
     this.showRoleDropdown = false;
     this.showDistrictDropdown = false;
+    this.showCompanyDropdown = false;
     this.activeSheet = 'add';
     this.showAddDialog = true;
   }
