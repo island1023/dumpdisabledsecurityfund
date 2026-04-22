@@ -1355,9 +1355,7 @@ export struct UnitHomePage {
           Button('上传')
             .height(36).fontSize(13)
             .backgroundColor('rgba(199, 28, 34, 0.1)').fontColor(ColorConstants.PRIMARY)
-            .onClick(() => {
-              this.showToastSafe('附件上传功能暂未接入');
-            })
+            .onClick(() => void this.handleUploadReductionAttachment())
         }
         .width('100%').height(44)
         .backgroundColor(ColorConstants.BG_PAGE).borderRadius(8)
@@ -1402,7 +1400,7 @@ export struct UnitHomePage {
               Text(this.selectedApplication.status)
                 .fontSize(12)
                 .fontColor(this.selectedApplication.status === '已通过' ? ColorConstants.SUCCESS :
-                           this.selectedApplication.status === '已驳回' ? ColorConstants.DANGER : ColorConstants.WARNING)
+                  this.selectedApplication.status === '已驳回' ? ColorConstants.DANGER : ColorConstants.WARNING)
                 .margin({ left: 8 })
             }.layoutWeight(1)
 
@@ -1444,6 +1442,19 @@ export struct UnitHomePage {
           .padding(12)
           .backgroundColor(ColorConstants.BG_PAGE)
           .borderRadius(8)
+          .margin({ bottom: 20 })
+
+          Row() {
+            Button('撤销申请')
+              .layoutWeight(1).height(44).fontSize(14)
+              .fontColor(ColorConstants.DANGER)
+              .backgroundColor('rgba(255, 0, 0, 0.08)')
+              .border({ width: 1, color: 'rgba(255, 0, 0, 0.2)' })
+              .borderRadius(8)
+              .enabled(this.selectedApplication.status === '待审核' || this.selectedApplication.status === '审批中')
+              .opacity(this.selectedApplication.status === '待审核' || this.selectedApplication.status === '审批中' ? 1 : 0.4)
+              .onClick(() => void this.handleCancelApplication())
+          }.width('100%')
         } else {
           Text('暂无数据')
             .fontSize(14)
@@ -1789,6 +1800,80 @@ export struct UnitHomePage {
     router.replaceUrl({ url: 'pages/LoginPage' });
   }
 
+
+  private async handleUploadReductionAttachment(): Promise<void> {
+    try {
+      console.log('=== 开始选择减免缓附件 ===');
+
+      const documentSelectOptions: picker.DocumentSelectOptions = new picker.DocumentSelectOptions();
+      documentSelectOptions.maxSelectNumber = 1;
+      documentSelectOptions.fileSuffixFilters = [
+        // 图片格式
+        '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
+        // 文档格式
+        '.pdf', '.doc', '.docx', '.txt', '.rtf',
+        // Excel 格式
+        '.xls', '.xlsx','.csv'
+      ];
+
+      const docPicker: picker.DocumentViewPicker = new picker.DocumentViewPicker();
+      const result: Array<string> = await docPicker.select(documentSelectOptions);
+
+      if (!result || result.length === 0) {
+        console.log('用户取消选择文件');
+        return;
+      }
+
+      const fileUri: string = result[0];
+      console.log('选择的文件URI:', fileUri);
+
+      // 从 URI 中提取原始文件扩展名
+      const lastDotIndex = fileUri.lastIndexOf('.');
+      const extension = lastDotIndex !== -1 ? fileUri.substring(lastDotIndex) : '.pdf';
+      const fileName: string = `reduction_${Date.now()}${extension}`;
+
+      const context: Context = getContext(this) as Context;
+      const tempPath: string = context.cacheDir + '/' + fileName;
+
+      console.log('开始将文件转存至沙箱...');
+      const file: fs.File = fs.openSync(fileUri, fs.OpenMode.READ_ONLY);
+      fs.copyFileSync(file.fd, tempPath);
+      fs.closeSync(file);
+      console.log('文件已转存至沙箱:', tempPath);
+
+      promptAction.showToast({ message: '⏳ 正在上传附件...', duration: 2000 });
+
+      const attachmentUrl: string = await UnitService.uploadReductionAttachment(tempPath, fileName);
+
+      this.appFormAttachment = attachmentUrl;
+
+      promptAction.showToast({
+        message: '✅ 附件上传成功',
+        duration: 2000
+      });
+
+      console.log('附件URL:', attachmentUrl);
+
+      try {
+        if (fs.accessSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+          console.log('临时文件已清理');
+        }
+      } catch (e) {
+        console.warn('清理临时文件失败:', e);
+      }
+
+    } catch (err) {
+      const error: BusinessError = err instanceof Error ? err as BusinessError : new Error(String(err)) as BusinessError;
+      console.error('附件上传失败:', error.message);
+      promptAction.showToast({
+        message: `❌ 附件上传失败: ${error.message}`,
+        duration: 3000
+      });
+    }
+  }
+
+
   private async submitApplication() {
     try {
       if (!this.appFormYear.trim()) {
@@ -1822,6 +1907,61 @@ export struct UnitHomePage {
       this.showToastSafe('提交申请失败，请重试');
     }
   }
+
+  private async handleCancelApplication() {
+    if (!this.selectedApplication) {
+      this.showToastSafe('未选择申请记录');
+      return;
+    }
+
+    const canCancel: boolean = this.selectedApplication.status === '待审核' || this.selectedApplication.status === '审批中';
+    if (!canCancel) {
+      this.showToastSafe('当前状态不可撤销');
+      return;
+    }
+
+    promptAction.showDialog({
+      title: '确认撤销',
+      message: `确定要撤销${this.selectedApplication.year}年${this.selectedApplication.type}申请吗？撤销后不可恢复。`,
+      buttons: [
+        {
+          text: '取消',
+          color: ColorConstants.TEXT_SECONDARY
+        },
+        {
+          text: '确认撤销',
+          color: ColorConstants.DANGER
+        }
+      ]
+    }).then((result: promptAction.ShowDialogSuccessResponse) => {
+      if (result.index === 1) {
+        void this.doCancelApplication();
+      }
+    }).catch((err: Error) => {
+      console.error('显示确认对话框失败:', err);
+    });
+  }
+
+  private async doCancelApplication() {
+    if (!this.selectedApplication) {
+      return;
+    }
+
+    try {
+      promptAction.showToast({ message: '⏳ 正在撤销申请...', duration: 2000 });
+
+      await ReductionService.cancelApplication(this.selectedApplication.id);
+
+      this.showToastSafe('✅ 撤销申请成功');
+      await this.loadApplications();
+      this.isSheetShow = false;
+    } catch (error) {
+      console.error('撤销申请失败:', error);
+      const errorMsg: string = error instanceof Error ? error.message : String(error);
+      this.showToastSafe(`❌ 撤销失败: ${errorMsg}`);
+    }
+  }
+
 
   private async handleAddEmployee() {
     if (this.addEmployeeMode === '批量导入') {

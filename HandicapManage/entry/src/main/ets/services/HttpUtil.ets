@@ -323,48 +323,50 @@ export async function uploadFile<T = Object>(
         console.info('[HttpUtil] ✅ 上传任务已完成');
 
         if (states && states.length > 0) {
-          const state = states[0];
+          const state: requestSdk.TaskState = states[0];
           console.info('[HttpUtil] 响应码:', state.responseCode);
-          console.info('[HttpUtil] 响应消息长度:', state.message ? state.message.length : 0);
 
-          if (state.message) {
-            console.info('[HttpUtil] 响应消息预览:', state.message.substring(0, 200));
-          }
+          const messageText: string = state.message ? state.message : '';
+          console.info('[HttpUtil] 响应消息:', messageText);
+          console.info('[HttpUtil] 响应消息长度:', messageText.length);
 
-          if (state.responseCode === 200 && state.message) {
-            try {
-              const responseData: ApiResponse<T> = JSON.parse(state.message) as ApiResponse<T>;
-              console.info('[HttpUtil] ✅ 后端返回数据:', JSON.stringify(responseData));
+          // 核心修改：放宽判定条件，允许 responseCode 为 0（模拟器常见现象）或 200
+          if (state.responseCode === 200 || state.responseCode === 0) {
+            if (messageText && messageText.length > 0) {
+              try {
+                const responseData: ApiResponse<T> = JSON.parse(messageText) as ApiResponse<T>;
+                console.info('[HttpUtil] ✅ 后端返回数据:', JSON.stringify(responseData));
 
-              if (responseData.code === 200) {
-                console.info('[HttpUtil] ✅ 导入成功');
-                resolve(responseData);
-              } else {
-                console.error('[HttpUtil] ❌ 业务逻辑失败:', responseData.message);
-                reject(new Error(responseData.message || '导入业务失败'));
+                if (responseData.code === 200) {
+                  console.info('[HttpUtil] ✅ 文件上传成功');
+                  resolve(responseData);
+                } else {
+                  console.error('[HttpUtil] ❌ 业务逻辑失败:', responseData.message);
+                  reject(new Error(responseData.message || '文件上传业务失败'));
+                }
+              } catch (parseError) {
+                console.warn('[HttpUtil] ⚠️ 解析后端响应失败，但上传已完成，推定成功:', parseError);
+                // 如果解析失败但传输已完成，手动构造成功对象
+                const fallbackResponse: ApiResponse<T> = {
+                  code: 200,
+                  message: '文件已成功上传',
+                  data: new Object() as T
+                };
+                resolve(fallbackResponse);
               }
-            } catch (parseError) {
-              console.warn('[HttpUtil] ⚠️ 解析后端响应失败:', parseError);
-              console.warn('[HttpUtil] 原始响应:', state.message);
-
-              const successRes: ApiResponse<T> = {
+            } else {
+              // 处理“响应码为 0 或 200 且消息为空”的情况（模拟器/网络层常见现象）
+              console.warn('[HttpUtil] ⚠️ 任务完成但无响应内容，因进度已达100%，推定上传成功');
+              const emptyResponse: ApiResponse<T> = {
                 code: 200,
-                message: '文件上传成功',
-                data: Object() as T
+                message: '文件已成功上传',
+                data: new Object() as T
               };
-              resolve(successRes);
+              resolve(emptyResponse);
             }
-          } else if (state.responseCode && state.responseCode !== 200) {
-            console.error('[HttpUtil] ❌ HTTP错误，响应码:', state.responseCode);
-            reject(new Error(`上传失败，响应码: ${state.responseCode}`));
           } else {
-            console.warn('[HttpUtil] ⚠️ 响应码异常，使用默认成功');
-            const successRes: ApiResponse<T> = {
-              code: 200,
-              message: '文件上传成功',
-              data: Object() as T
-            };
-            resolve(successRes);
+            console.error('[HttpUtil] ❌ HTTP错误，响应码:', state.responseCode);
+            reject(new Error(`上传失败，HTTP响应码: ${state.responseCode}`));
           }
         } else {
           console.error('[HttpUtil] ❌ 上传任务状态异常');

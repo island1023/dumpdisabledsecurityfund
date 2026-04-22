@@ -54,6 +54,13 @@ export interface ImportStatistics {
 }
 
 /**
+ * 文件上传响应接口
+ */
+export interface UploadFileResponse {
+  url: string;
+}
+
+/**
  * 导入响应结果接口
  */
 export interface ImportResult {
@@ -201,7 +208,7 @@ export class UnitService {
    */
   static async getCompanyInfo(): Promise<CompanyInfo> {
     const response = await get<Record<string, Object>>('/unit/info');
-    
+
     if (response.code === 200) {
       // 兼容后端返回结构差异：data 可能再次嵌套在 data 字段中
       const responseData = response.data as Record<string, Object>;
@@ -211,7 +218,8 @@ export class UnitService {
 
       const idValue = pickFirstDefined(raw, ['id']);
       const nameValue = pickFirstDefined(raw, ['name', 'companyName']);
-      const creditCodeValue = pickFirstDefined(raw, ['creditCode', 'unifiedSocialCreditCode', 'unified_social_credit_code']);
+      const creditCodeValue =
+        pickFirstDefined(raw, ['creditCode', 'unifiedSocialCreditCode', 'unified_social_credit_code']);
       const industryValue = pickFirstDefined(raw, ['industry']);
       const establishDateValue = pickFirstDefined(raw, ['establishDate', 'establish_date']);
       const addressValue = pickFirstDefined(raw, ['address', 'registerAddress', 'register_address']);
@@ -248,7 +256,7 @@ export class UnitService {
       }
       return info;
     }
-    
+
     throw new Error(response.message);
   }
 
@@ -264,11 +272,11 @@ export class UnitService {
       params.pageSize = pageSize;
     }
     const response = await get<Object>('/unit/employees', params);
-    
+
     if (response.code === 200) {
       return normalizePageResponse(response.data);
     }
-    
+
     throw new Error(response.message);
   }
 
@@ -277,11 +285,11 @@ export class UnitService {
    */
   static async getDisabledEmployees(): Promise<Employee[]> {
     const response = await get<Object>('/unit/disabled-employees');
-    
+
     if (response.code === 200) {
       return normalizeEmployeeList(response.data);
     }
-    
+
     throw new Error(response.message);
   }
 
@@ -290,7 +298,7 @@ export class UnitService {
    */
   static async getDisabledEmployeeDetail(employeeId: string): Promise<DisabledEmployeeDetail> {
     const response = await get<Record<string, Object>>(`/unit/disabled-employees/${employeeId}`);
-    
+
     if (response.code === 200) {
       const responseData = response.data as Record<string, Object>;
       const nestedData = responseData && responseData['data'] as Record<string, Object> | undefined;
@@ -301,10 +309,11 @@ export class UnitService {
         disabilityType: String(pickFirstDefined(raw, ['disabilityType', 'type', 'disability_type']) ?? ''),
         disabilityLevel: String(pickFirstDefined(raw, ['disabilityLevel', 'level', 'disability_level']) ?? ''),
         hireDate: String(pickFirstDefined(raw, ['hireDate', 'entryDate', 'entry_time', 'entryTime']) ?? ''),
-        approvedDate: String(pickFirstDefined(raw, ['approvedDate', 'approveDate', 'approvalDate', 'auditPassTime', 'audit_pass_time']) ?? '')
+        approvedDate: String(pickFirstDefined(raw,
+          ['approvedDate', 'approveDate', 'approvalDate', 'auditPassTime', 'audit_pass_time']) ?? '')
       };
     }
-    
+
     throw new Error(response.message);
   }
 
@@ -313,11 +322,11 @@ export class UnitService {
    */
   static async getNonDisabledEmployees(): Promise<Employee[]> {
     const response = await get<Object>('/unit/non-disabled-employees');
-    
+
     if (response.code === 200) {
       return normalizeEmployeeList(response.data);
     }
-    
+
     throw new Error(response.message);
   }
 
@@ -334,7 +343,7 @@ export class UnitService {
     payload.employee.jobPosition = data.jobPosition || '';
 
     const response = await post<Record<string, Object>>('/unit/employees', payload as Object);
-    
+
     if (response.code === 200) {
       const raw = response.data as Record<string, Object>;
       const nested = raw && raw['data'] as Record<string, Object> | undefined;
@@ -344,7 +353,7 @@ export class UnitService {
       result.id = String(idVal ?? '');
       return result;
     }
-    
+
     throw new Error(response.message);
   }
 
@@ -382,30 +391,75 @@ export class UnitService {
   }
 
 
-  /**
-   * 批量导入单位全体职工
-   * @param fileUri 文件沙箱路径
-   * @param fileName 文件名
-   */
-  /**
-   * 批量导入单位全体职工
-   * @param fileUri 文件沙箱路径
-   * @param fileName 文件名
-   */
-  // UnitService.ets
   static async importAllEmployees(fileUri: string, fileName: string): Promise<ImportResult> {
-    // 指定泛型为 ImportStatistics，这样数据结构才完整
     const response = await uploadFile<ImportStatistics>('/employee/importAllEmployees', fileUri, 'file', fileName);
 
     if (response.code === 200) {
-      // 🔴 必须返回包含 code, message, data 的对象
       return {
         code: response.code,
-        message: response.message, // 这里存着后端“成功导入10条...”的提示
+        message: response.message,
         data: response.data
       };
     }
     throw new Error(response.message || '业务执行失败');
   }
-}
 
+
+  /**
+   * 上传减免缓申请附件
+   * @param fileUri 文件沙箱路径
+   * @param fileName 文件名
+   * @returns 附件URL路径
+   */
+  static async uploadReductionAttachment(fileUri: string, fileName: string): Promise<string> {
+    console.log('>>> 开始上传减免缓附件:', fileName);
+
+    try {
+      const response = await uploadFile<Object>(
+        '/upload/file?type=attachment',
+        fileUri,
+        'file',
+        fileName
+      );
+
+      console.log('>>> 上传响应:', JSON.stringify(response));
+
+      if (response.code === 200) {
+        let attachmentUrl: string = '';
+
+        // 情况1: data 是字符串（后端直接返回文件名）
+        if (typeof response.data === 'string') {
+          attachmentUrl = response.data;
+        }
+        // 情况2: data 是对象，尝试提取 url 字段
+        else if (response.data && typeof response.data === 'object') {
+          const dataRecord: Record<string, Object> = response.data as Record<string, Object>;
+          const urlValue: Object | undefined = dataRecord['url'];
+          if (urlValue !== undefined && urlValue !== null) {
+            attachmentUrl = String(urlValue);
+          }
+        }
+
+        if (attachmentUrl && attachmentUrl.trim().length > 0) {
+          console.log('>>> 附件上传成功，URL:', attachmentUrl);
+          return attachmentUrl;
+        }
+
+        // 如果data中没有url，但上传成功了，使用文件名作为fallback
+        console.warn('>>> 上传成功但未返回URL，使用文件名作为临时方案');
+        return `/uploads/attachment/${fileName}`;
+      }
+
+      console.error('>>> 附件上传失败:', response.message);
+      throw new Error(response.message || '附件上传失败');
+
+    } catch (error) {
+      console.error('>>> uploadReductionAttachment异常:', error);
+      if (error instanceof Error) {
+        throw error;
+      } else {
+        throw new Error(String(error));
+      }
+    }
+  }
+}

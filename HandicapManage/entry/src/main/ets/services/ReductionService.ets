@@ -1,4 +1,5 @@
-import { get, post } from './HttpUtil';
+
+import { get, post, del } from './HttpUtil';
 
 /**
  * 减免申请信息
@@ -144,5 +145,22 @@ export class ReductionService {
     }
     
     throw new Error(response.message);
+  }
+
+  /**
+   * 撤销减免缓申请
+   * @param applicationId 申请ID
+   */
+  static async cancelApplication(applicationId: string): Promise<void> {
+    console.log('>>> 开始撤销申请:', applicationId);
+
+    const response = await del<void>(`/reduction/withdraw/${applicationId}`);
+
+    if (response.code === 200) {
+      console.log('>>> 撤销申请成功');
+      return;
+    }
+
+    throw new Error(response.message || '撤销申请失败');
   }
 }
